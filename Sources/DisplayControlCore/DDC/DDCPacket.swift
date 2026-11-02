@@ -33,6 +33,10 @@ public enum DDC {
     public enum VCP {
         public static let brightness: UInt8 = 0x10
         public static let contrast: UInt8 = 0x12
+        public static let colorPreset: UInt8 = 0x14
+        public static let gainRed: UInt8 = 0x16
+        public static let gainGreen: UInt8 = 0x18
+        public static let gainBlue: UInt8 = 0x1A
         public static let inputSource: UInt8 = 0x60
         public static let volume: UInt8 = 0x62
         public static let orientation: UInt8 = 0xAA

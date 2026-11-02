@@ -10,13 +10,17 @@ Commands:
   status                              compact table of displays
   list                                every display with its id, control mode and controls
   get <display> [--brightness] [--contrast] [--volume] [--input]
-  set <display> [--brightness N] [--contrast N] [--volume N] [--mute on|off]
+  set <display> [--brightness N] [--contrast N] [--volume N] [--boost 100-200] [--mute on|off]
                 [--input NAME|CODE] [--rotation 0|90|180|270] [--power on|off]
   set --all --brightness N            apply to every display
   preset list
   preset activate <name> [--delay SECONDS]
   schedule list | enable <id> | disable <id>
   sync [enable <display> | disable]
+  caps <display>                      list the controls a DDC monitor reports
+  vcp <display> <code>                read one raw DDC control (code in hex like DC, or 0xDC)
+  vcp-set <display> <code> <value>    write one raw DDC control the monitor advertises, and read it back
+  keys                                show whether the keyboard keys are enabled, permitted and running
   mode <display> auto|ddc|apple|software   choose how a display is controlled
   reset-gamma                         undo software dimming
   selftest [<display>] [--mock]       check a display (--mock runs against a simulated monitor)
@@ -65,7 +69,7 @@ while i < args.count {
     case "--index": index = Int(takeValue(&i, a)) ?? { fail("--index needs a number", ExitCode.usage) }()
     case "--uuid": uuid = takeValue(&i, a)
     case "--delay": delay = Int(takeValue(&i, a)) ?? { fail("--delay needs a number of seconds", ExitCode.usage) }()
-    case "--brightness", "--contrast", "--volume", "--rotation":
+    case "--brightness", "--contrast", "--volume", "--rotation", "--boost":
         let key = String(a.dropFirst(2))
         // For `get`, these flags select which values to print; for `set`, they carry a number.
         if args.first == "get" { wantedProps.append(key) }
@@ -103,6 +107,22 @@ var request: IPCRequest
 switch command {
 case "status", "list", "version", "reset-gamma":
     request = IPCRequest(cmd: command)
+case "keys":
+    request = IPCRequest(cmd: "keys.status")
+case "caps":
+    request = IPCRequest(cmd: "caps", args: displayArgs(rest.first))
+case "vcp-set":
+    guard rest.count == 3, let value = Int(rest[2]) else { fail("Usage: displaycontrol vcp-set <display> <code in hex> <value>", ExitCode.usage) }
+    let hexc = rest[1].lowercased().replacingOccurrences(of: "0x", with: "")
+    guard let code = Int(hexc, radix: 16), (0...255).contains(code) else { fail("The code must be hexadecimal, like 14", ExitCode.usage) }
+    var a = displayArgs(rest[0]); a["code"] = .int(code); a["value"] = .int(value)
+    request = IPCRequest(cmd: "vcp.set", args: a)
+case "vcp":
+    guard rest.count == 2 else { fail("Usage: displaycontrol vcp <display> <code>", ExitCode.usage) }
+    let hex = rest[1].lowercased().replacingOccurrences(of: "0x", with: "")
+    guard let code = Int(hex, radix: 16), (0...255).contains(code) else { fail("The code must be hexadecimal, like DC or 0xDC", ExitCode.usage) }
+    var a = displayArgs(rest[0]); a["code"] = .int(code)
+    request = IPCRequest(cmd: "vcp.get", args: a)
 case "get":
     var a = displayArgs(rest.first)
     if !wantedProps.isEmpty { a["props"] = .array(wantedProps.map { .string($0) }) }

@@ -235,6 +235,22 @@ struct ExpandedControls: View {
                     .menuStyle(.borderlessButton).fixedSize()
                 }
             }
+            if display.supported.contains(.boost) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Label("Extra brightness", systemImage: "sun.max.fill").font(.caption)
+                        Spacer()
+                        Text("\(max(100, model.value(display.key, .boost)))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Slider(value: Binding(
+                        get: { Double(max(100, model.value(display.key, .boost))) },
+                        set: { model.setValue(display.key, .boost, Int($0.rounded())) }), in: 100...200)
+                        .accessibilityLabel("Extra brightness")
+                        .accessibilityValue("\(max(100, model.value(display.key, .boost))) percent")
+                    Text("Raises the monitor's color gains together. Past a point bright detail can clip. 100% puts your original settings back exactly.")
+                        .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
             if display.supported.contains(.power) {
                 HStack {
                     Label("Power", systemImage: "power").font(.caption)

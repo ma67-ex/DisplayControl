@@ -29,8 +29,13 @@ cp Packaging/Info.plist "$APP/Contents/Info.plist"
 mkdir -p dist/completions && cp Packaging/completions/* dist/completions/ 2>/dev/null || true
 
 # Ad-hoc signing changes the code identity on every rebuild, which resets the Accessibility grant.
-codesign --force --deep --sign - "$APP/Contents/Resources/bin/displaycontrol"
-codesign --force --deep --sign - "$APP"
+# A stable identity keeps the grant across rebuilds. Create one once with Scripts/make-dev-cert.sh;
+# set SIGN_IDENTITY to use a different one.
+IDENTITY="${SIGN_IDENTITY:-DisplayControl Local Dev}"
+if ! security find-identity -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then IDENTITY="-"; fi
+echo "Signing with: $([ "$IDENTITY" = "-" ] && echo "ad-hoc (permissions reset on every rebuild)" || echo "$IDENTITY")"
+codesign --force --deep --sign "$IDENTITY" "$APP/Contents/Resources/bin/displaycontrol"
+codesign --force --deep --sign "$IDENTITY" "$APP"
 (cd dist && ditto -c -k --keepParent DisplayControl.app DisplayControl.zip)
 shasum -a 256 dist/DisplayControl.zip | tee dist/DisplayControl.zip.sha256
 echo "Built $APP"

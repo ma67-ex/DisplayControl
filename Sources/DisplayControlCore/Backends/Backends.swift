@@ -158,6 +158,13 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
     private var lastTarget: [UInt8: Int] = [:]
     /// Invoked when read-back disagrees with what we wrote.
     public var onUnreliable: (@Sendable () -> Void)?
+    /// Gains and color preset as they were before boosting. Persisted by the owner so a restart keeps them.
+    public var gainBaseline: [Int]? { get { lock.withLock { baseline } } set { lock.withLock { baseline = newValue } } }
+    public var presetBaseline: Int? { get { lock.withLock { baselinePreset } } set { lock.withLock { baselinePreset = newValue } } }
+    public var onBaselineChange: (@Sendable ([Int]?, Int?) -> Void)?
+    private var baseline: [Int]?
+    private var baselinePreset: Int?
+    static let gainCodes: [UInt8] = [DDC.VCP.gainRed, DDC.VCP.gainGreen, DDC.VCP.gainBlue]
     public var verifyReadback = true
 
     static let codes: [DisplayProperty: UInt8] = [
@@ -180,6 +187,7 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
         if let c = try? await device.readCapabilities() {
             lock.withLock { caps = c }
             for (p, code) in Self.codes where c.supports(code) { result.insert(p) }
+            if Self.gainCodes.allSatisfy({ c.supports($0) }) { result.insert(.boost) }
         }
         // Many monitors return an empty or broken capability string; probe the essentials individually.
         if result.isEmpty {
@@ -197,6 +205,7 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
     }
 
     public func get(_ property: DisplayProperty) async throws -> Int {
+        if property == .boost { return try await currentBoost() }
         guard let code = Self.codes[property] else { throw BackendError.unsupported(property) }
         let r = try await device.read(code)
         switch property {
@@ -205,10 +214,12 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
         case .power: return r.current == 1 ? 1 : 0
         case .rotation: return Self.degrees(fromOrientationCode: Int(r.current))
         case .input: return Int(r.current)
+        case .boost: return 100                 // handled above
         }
     }
 
     public func set(_ property: DisplayProperty, to value: Int) async throws {
+        if property == .boost { try await setBoost(value); return }
         guard let code = Self.codes[property] else { throw BackendError.unsupported(property) }
         let raw: Int
         switch property {
@@ -218,6 +229,7 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
         case .power: raw = value != 0 ? 1 : 5
         case .rotation: raw = Self.orientationCode(forDegrees: value)
         case .input: raw = max(0, min(0xFFFF, value))
+        case .boost: return                       // handled above
         }
         Log.ddc.info("backend set code \(code, privacy: .public) raw \(raw, privacy: .public)")
         await device.set(code, raw: UInt16(raw))
@@ -241,6 +253,63 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
     }
 
     public func shutdown() async { verify.cancel() }
+
+    // MARK: Extra brightness (RGB gain boost)
+
+    /// Highest boost that keeps every channel within its range, capped at 200 percent.
+    static func boostLimit(baseline: [Int], maxGain: Int) -> Int {
+        guard let top = baseline.max(), top > 0 else { return 100 }
+        return max(100, min(200, Int((100.0 * Double(maxGain) / Double(top)).rounded(.down))))
+    }
+
+    private func gainMax() async throws -> Int {
+        if let m = await device.maxValues[DDC.VCP.gainRed], m > 0 { return Int(m) }
+        return Int(try await device.read(DDC.VCP.gainRed).max)
+    }
+
+    private func currentBoost() async throws -> Int {
+        guard let base = gainBaseline, let r = base.first, r > 0 else { return 100 }
+        let now = try await device.read(DDC.VCP.gainRed)
+        let ratio = (100.0 * Double(now.current) / Double(r)).rounded()
+        return max(100, min(200, Int(ratio)))
+    }
+
+    /// Scales the three gains together so the white balance is unchanged. The first time, the original gains
+    /// and color preset are remembered. Setting 100 puts them back exactly.
+    private func setBoost(_ requested: Int) async throws {
+        let target = max(100, min(200, requested))
+        if target == 100 { await restoreBaseline(); return }
+
+        let maxGain = try await gainMax()
+        var base = gainBaseline
+        if base == nil {
+            var gains: [Int] = []
+            for c in Self.gainCodes { gains.append(Int(try await device.read(c).current)) }
+            let preset = (try? await device.read(DDC.VCP.colorPreset)).map { Int($0.current) }
+            base = gains
+            gainBaseline = gains; presetBaseline = preset
+            onBaselineChange?(gains, preset)
+            Log.ddc.info("boost baseline saved")
+        }
+        guard let b = base else { return }
+        let t = min(target, Self.boostLimit(baseline: b, maxGain: maxGain))
+        for (code, g) in zip(Self.gainCodes, b) {
+            let scaled = min(maxGain, Int((Double(g) * Double(t) / 100.0).rounded()))
+            await device.set(code, raw: UInt16(scaled))
+        }
+        Log.ddc.info("boost \(t, privacy: .public) percent")
+    }
+
+    private func restoreBaseline() async {
+        guard let b = gainBaseline else { return }
+        // Editing a gain makes the monitor switch itself to its "user" color preset, so write the exact gains
+        // first and the original preset last. (Measured on a real monitor; the other order ends on preset 11.)
+        for (code, g) in zip(Self.gainCodes, b) { await device.set(code, raw: UInt16(g)) }
+        if let preset = presetBaseline { await device.set(DDC.VCP.colorPreset, raw: UInt16(preset)) }
+        gainBaseline = nil; presetBaseline = nil
+        onBaselineChange?(nil, nil)
+        Log.ddc.info("boost restored")
+    }
 
     // DDC orientation values: 1 = 0 degrees, 2 = 90, 3 = 180, 4 = 270.
     static func orientationCode(forDegrees d: Int) -> Int {

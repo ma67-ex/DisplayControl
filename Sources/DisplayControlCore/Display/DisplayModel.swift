@@ -3,6 +3,8 @@ import CoreGraphics
 
 public enum DisplayProperty: String, Codable, CaseIterable, Sendable {
     case brightness, contrast, volume, mute, input, power, rotation
+    /// Extra brightness: 100 to 200 percent of the monitor's own color gains (DDC monitors with RGB gain only).
+    case boost
 
     /// Properties expressed as 0...100 percentages (these are the ones sync follows).
     public var isPercent: Bool { self == .brightness || self == .contrast || self == .volume }
@@ -98,5 +100,8 @@ public struct DisplaySettings: Codable, Sendable, Equatable {
     public var syncScale: Double = 1.0
     public var syncConstant: Double = 0.0
     public var doubleWrite: Bool = false
+    /// RGB gains and color preset captured before the first boost, so 100% can restore them exactly.
+    public var gainBaseline: [Int]?
+    public var gainBaselinePreset: Int?
     public init() {}
 }

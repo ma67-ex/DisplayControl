@@ -34,6 +34,7 @@ public final class MCPServer: @unchecked Sendable {
                 "brightness": prop("integer", "Brightness percent.", min: 0, max: 100),
                 "contrast": prop("integer", "Contrast percent.", min: 0, max: 100),
                 "volume": prop("integer", "Speaker volume percent.", min: 0, max: 100),
+                "boost": prop("integer", "Extra brightness from 100 (normal) to 200, by scaling the monitor's color gains. 100 restores them.", min: 100, max: 200),
                 "mute": prop("boolean", "Mute the speakers."),
                 "input": prop("string", "Input source: hdmi1, hdmi2, displayport1, displayport2, usbc, or a DDC code."),
                 "rotation": prop("integer", "Rotation in degrees: 0, 90, 180 or 270."),
@@ -111,14 +112,15 @@ public final class MCPServer: @unchecked Sendable {
         case "get_display": return render(await backend(IPCRequest(cmd: "get", args: base)))
         case "set_display":
             var props: [String: JSONValue] = [:]
-            for k in ["brightness", "contrast", "volume", "mute", "input", "rotation", "power"] { if let v = args[k] { props[k] = v } }
+            for k in ["brightness", "contrast", "volume", "boost", "mute", "input", "rotation", "power"] { if let v = args[k] { props[k] = v } }
             if let p = props["power"], p.boolValue == false, args["confirm"]?.boolValue != true {
                 return text("Turning a display off needs confirm=true. Some monitors cannot be woken over DDC once off.", error: true)
             }
             for k in ["brightness", "contrast", "volume"] {                    // clamp 0-100
                 if let v = props[k]?.intValue { props[k] = .int(min(100, max(0, v))) }
             }
-            if props.isEmpty { return text("Nothing to set. Provide at least one of brightness, contrast, volume, mute, input, rotation, power.", error: true) }
+            if let b = props["boost"]?.intValue { props["boost"] = .int(min(200, max(100, b))) }
+            if props.isEmpty { return text("Nothing to set. Provide at least one of brightness, contrast, volume, boost, mute, input, rotation, power.", error: true) }
             base["props"] = .object(props)
             if let all = args["all"] { base["all"] = all }
             return render(await backend(IPCRequest(cmd: "set", args: base)))

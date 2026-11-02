@@ -22,6 +22,8 @@ public struct CommandRouter: Sendable {
     public let center: DisplayCenter
     public var appVersion: String
     public var onRefresh: (@Sendable () async -> Void)?
+    /// Set by the app: reports whether the keyboard key listener is enabled, permitted and running.
+    public var keyStatus: (@Sendable () async -> JSONValue)?
 
     public init(center: DisplayCenter, appVersion: String = "1.0.0", onRefresh: (@Sendable () async -> Void)? = nil) {
         self.center = center; self.appVersion = appVersion; self.onRefresh = onRefresh
@@ -120,6 +122,46 @@ public struct CommandRouter: Sendable {
             try await center.setMode(key: await d.key, mode)
             return .success(.string(await d.mode.rawValue))
 
+        case "caps":
+            let d = try await display(a)
+            guard let ddc = await d.backend as? DDCBackend else { throw CenterError.invalidValue("\(await d.info.name) is not controlled over DDC") }
+            _ = await ddc.supported()
+            guard let c = ddc.capabilities else { throw CenterError.invalidValue("The monitor did not report a capability list") }
+            var out: [String: JSONValue] = [:]
+            for (code, values) in c.vcp.sorted(by: { $0.key < $1.key }) {
+                out[String(format: "%02X", code)] = .array(values.map { .int(Int($0)) })
+            }
+            return .success(.object(["model": .string(c.model ?? ""), "mccs": .string(c.mccsVersion ?? ""), "controls": .object(out)]))
+
+        case "vcp.get":
+            let d = try await display(a)
+            guard let ddc = await d.backend as? DDCBackend else { throw CenterError.invalidValue("\(await d.info.name) is not controlled over DDC") }
+            guard let code = a["code"]?.intValue, (0...255).contains(code) else { throw CenterError.invalidValue("code must be 0 to 255 (hex like 0xDC is fine)") }
+            let r = try await ddc.device.read(UInt8(code))
+            return .success(.object(["code": .string(String(format: "%02X", code)), "current": .int(Int(r.current)), "max": .int(Int(r.max))]))
+
+        case "vcp.set":
+            let d = try await display(a)
+            guard let ddc = await d.backend as? DDCBackend else { throw CenterError.invalidValue("\(await d.info.name) is not controlled over DDC") }
+            guard let code = a["code"]?.intValue, (0...255).contains(code), let value = a["value"]?.intValue, (0...65535).contains(value) else {
+                throw CenterError.invalidValue("code must be 0 to 255 and value 0 to 65535")
+            }
+            // Only controls the monitor itself advertises, so a typo cannot poke an unknown register.
+            _ = await ddc.supported()
+            guard ddc.capabilities?.supports(UInt8(code)) == true else {
+                throw CenterError.invalidValue(String(format: "The monitor does not advertise control %02X", code))
+            }
+            let before = try await ddc.device.read(UInt8(code))
+            await ddc.device.set(UInt8(code), raw: UInt16(value))
+            await ddc.device.waitUntilIdle()
+            try? await Task.sleep(for: .milliseconds(400))
+            let after = try await ddc.device.read(UInt8(code))
+            return .success(.object(["code": .string(String(format: "%02X", code)), "before": .int(Int(before.current)),
+                                     "requested": .int(value), "after": .int(Int(after.current)), "max": .int(Int(after.max))]))
+
+        case "keys.status":
+            return .success(await keyStatus?() ?? .null)
+
         case "redetect":
             let d = try await display(a)
             let ok = await center.redetect(key: await d.key)
@@ -156,6 +198,9 @@ public struct CommandRouter: Sendable {
             switch p {
             case .input: value = v.intValue ?? v.stringValue.flatMap(InputSource.parse)
             case .power, .mute: value = v.boolValue.map { $0 ? 1 : 0 } ?? v.intValue
+            case .boost:
+                value = v.intValue
+                if let b = value, !(100...200).contains(b) { throw CenterError.invalidValue("boost must be between 100 and 200") }
             case .rotation:
                 value = v.intValue
                 if let r = value, ![0, 90, 180, 270].contains(r) { throw CenterError.invalidValue("Rotation must be 0, 90, 180 or 270") }

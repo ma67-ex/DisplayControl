@@ -39,7 +39,7 @@ final class AppEnvironment {
     let center: DisplayCenter
     let settings: SettingsStore
     let model: AppModel
-    let router: CommandRouter
+    var router: CommandRouter
     let scheduler: Scheduler
     let keyboard: KeyboardController
     let keyTargets = KeyTargets()
@@ -52,6 +52,7 @@ final class AppEnvironment {
     private var signalSources: [DispatchSourceSignal] = []
     private var started = false
     private var permissionPoll: Task<Void, Never>?
+    private var askedThisLaunch = false
 
     private init() {
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent("displaycontrol-demo")
@@ -75,6 +76,16 @@ final class AppEnvironment {
         started = true
         NSApp.setActivationPolicy(.accessory)                                  // no Dock icon, even outside the bundle
 
+        router.keyStatus = { [weak self] in
+            await MainActor.run {
+                guard let self else { return .null }
+                return .object(["enabled": .bool(self.settings.current.mediaKeysEnabled), "permission": .bool(MediaKeyTap.hasPermission),
+                                "accessibilityTrusted": .bool(AXIsProcessTrusted()),
+                                "inputMonitoring": .bool(CGPreflightListenEventAccess()),
+                                "postEvents": .bool(CGPreflightPostEventAccess()),
+                                "running": .bool(self.model.keyTapRunning), "pid": .int(Int(getpid())), "bundle": .string(Bundle.main.bundlePath)])
+            }
+        }
         model.onSettingsChanged = { [weak self] in self?.applyInputSettings() }
         model.onPresetsChanged = { [weak self] in self?.applyInputSettings() }
         model.onSchedulesChanged = { [weak self] in Task { await self?.scheduler.reconfigure() } }
@@ -144,6 +155,11 @@ final class AppEnvironment {
         }
         model.keyTapRunning = tap?.isRunning ?? false
         // The grant happens in System Settings after the toggle, so keep checking until it arrives.
+        if current.mediaKeysEnabled && !MediaKeyTap.hasPermission && !askedThisLaunch {
+            // Let macOS show its own request, which names the right permission for this macOS version.
+            askedThisLaunch = true
+            MediaKeyTap.requestPermission(prompt: true)
+        }
         if current.mediaKeysEnabled && !MediaKeyTap.hasPermission { waitForPermission() } else { permissionPoll?.cancel(); permissionPoll = nil }
 
         // Custom shortcuts.

@@ -71,7 +71,7 @@ public actor ManagedDisplay {
     }
 
     public func refreshCore() async {
-        for p in [DisplayProperty.brightness, .contrast, .volume] where supported.contains(p) { _ = await refresh(p) }
+        for p in [DisplayProperty.brightness, .contrast, .volume, .boost] where supported.contains(p) { _ = await refresh(p) }
     }
 
     public func set(_ property: DisplayProperty, to value: Int) async throws {
@@ -167,8 +167,8 @@ public actor DisplayCenter: PresetTarget {
                 await ddc.device.setDoubleWrite(settings.doubleWrite)
             }
             let managed = ManagedDisplay(info: fixed, backend: backend, settings: settings)
+            wireUnreliable(backend, managed, key: key, settings: settings)
             await managed.probe()
-            wireUnreliable(backend, managed)
             if let old = displays[key] { await old.shutdown() }
             displays[key] = managed
             newKeys.append(key)
@@ -192,8 +192,16 @@ public actor DisplayCenter: PresetTarget {
         for h in topologyObservers.values { h() }
     }
 
-    private func wireUnreliable(_ backend: DisplayBackend, _ managed: ManagedDisplay) {
-        if let ddc = backend as? DDCBackend { ddc.onUnreliable = { Task { await managed.markUnreliable(true) } } }
+    private func wireUnreliable(_ backend: DisplayBackend, _ managed: ManagedDisplay, key: String, settings: DisplaySettings) {
+        guard let ddc = backend as? DDCBackend else { return }
+        ddc.onUnreliable = { Task { await managed.markUnreliable(true) } }
+        // Keep the pre-boost gains in settings so the baseline survives a restart. Set synchronously, before the
+        // first read, so a relaunched app already knows it is boosted.
+        ddc.gainBaseline = settings.gainBaseline
+        ddc.presetBaseline = settings.gainBaselinePreset
+        ddc.onBaselineChange = { [weak self] gains, preset in
+            Task { await self?.updateSettings(key: key) { $0.gainBaseline = gains; $0.gainBaselinePreset = preset } }
+        }
     }
 
     /// A monitor that just connected often ignores DDC while the link comes up (spec 5.5).
@@ -219,8 +227,9 @@ public actor DisplayCenter: PresetTarget {
         let info = await d.info
         let backend = await system.makeBackend(for: info, preferred: nil, timing: timing)
         guard backend.mode != .software else { return false }
+        let current = await d.settings
+        wireUnreliable(backend, d, key: key, settings: current)
         await d.replaceBackend(backend)
-        wireUnreliable(backend, d)
         for h in topologyObservers.values { h() }
         return true
     }
@@ -385,8 +394,9 @@ public actor DisplayCenter: PresetTarget {
         let info = await d.info
         let backend = await system.makeBackend(for: info, preferred: mode, timing: timing)
         if let mode, backend.mode != mode { throw CenterError.invalidValue("\(info.name) does not support \(mode.title)") }
+        let current = await d.settings
+        wireUnreliable(backend, d, key: key, settings: current)
         await d.replaceBackend(backend)
-        wireUnreliable(backend, d)
         for h in topologyObservers.values { h() }
     }
 

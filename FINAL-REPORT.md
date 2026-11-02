@@ -4,7 +4,7 @@ Date: 2026-11-02. Built from `DisplayControl-BUILD-SPEC.md` on an Apple Silicon 
 
 ## Summary
 
-A working macOS menu bar app, command line tool, MCP server and static website, about 6,300 lines of Swift plus the site generator. 62 automated tests pass. Real DDC/CI control was verified on one external monitor (Acer ED270R S3 over HDMI). Several features that need permissions or input I could not give (media keys, global hotkeys, live system-event triggers, URL scheme launch from LaunchServices, a visual look at the real menu bar popover) are implemented but not exercised, and are listed as such below.
+A working macOS menu bar app, command line tool, MCP server and static website, about 6,400 lines of Swift plus the site generator. 72 automated tests pass. Real DDC/CI control was verified on one external monitor (Acer ED270R S3 over HDMI). Media keys and the real menu bar popover were later confirmed by the user. Global hotkeys, live system-event triggers and URL scheme launch from LaunchServices remain implemented but not exercised, and are listed as such below.
 
 Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/build-app.sh` for `dist/DisplayControl.app` and the zip.
 
@@ -34,7 +34,7 @@ Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/buil
 | F20 | Sync | Tested | Host to follower, loop-free, skips unsupported controls. Run through the real binary in demo mode. |
 | F21 | Sync offsets | Tested | 70% at host 100% verified in tests. |
 | F22 | Independent control | Tested | Followers keep their own sliders. Sync is one way. |
-| F23 | Keyboard targets the display under the pointer | Compiled only | Pointer hit-testing implemented. |
+| F23 | Keyboard targets the display under the pointer | **Hardware** | Confirmed by the user: with the all-displays option off, keys change only the display under the pointer. |
 | F30 to F33 | Presets: create, edit, store, apply, delay | Tested | Store round trip, corrupt-file fallback, apply order, missing displays, idempotency. The editor UI renders (snapshots) but was not clicked through. |
 | F34 | Preset hotkey | Compiled only | |
 | F40 | Time trigger | Tested | Weekdays, midnight, daylight saving both ways. |
@@ -44,14 +44,14 @@ Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/buil
 | F44 | Enable and disable | Tested | |
 | F45 | Missed-time catch-up | Tested | Two hour window. |
 | F46 | Reconnect restore | Tested | Connection events are emitted; the scheduler ignores startup. |
-| F50 | Media keys | Compiled only | Needs Accessibility permission, which was not granted. |
+| F50 | Media keys | **Hardware** | Confirmed on the external Acer display after the permission was granted. Needed a stable signing certificate and a system-wide permission reset (see Known issues). |
 | F51 | Custom shortcuts | Compiled only | Carbon hotkeys. The recorder renders but was not used. |
 | F52 | Step size | Tested | Hold-to-repeat relies on the coalescing queue. |
 | F53 | URL scheme | Tested (parsing), Compiled only (AppleEvent handler) | The bundle declares the scheme; launching through LaunchServices was not tried. |
 | F54 | App Intents, Siri, Spotlight, Shortcuts | **Not built** | Needs an Xcode build. Use the URL scheme or CLI. The `DC_APPINTENTS` flag from the spec was not created. |
 | F55 | Command line tool | **Hardware** | Run against the live app on real displays. Exit codes verified. |
 | F56 | MCP server | Tested | Handshake, tool list, clamping, power-off guard, JSON-RPC errors. Smoke tested over stdio. |
-| F60 | Menu bar app without a Dock icon | Compiled only (popover) | The process runs as an accessory app. I rendered the popover contents to PNG, but did not click the real status item. |
+| F60 | Menu bar app without a Dock icon | **Hardware** | The user opened the real popover. It exposed a collapsed-list bug, now fixed. |
 | F61 | Simple and expanded cards | Compiled only | Rendered in snapshots, expanded state not captured. |
 | F62 | Launch at login | Compiled only | `SMAppService`, needs the app in Applications. |
 | F63 | Settings window | Compiled only | All seven sections render in snapshots. |
@@ -60,6 +60,7 @@ Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/buil
 | F66 | Localization-ready | **Not built** | Strings are inline English. |
 | F67 | Privacy | Done | No networking code anywhere. |
 | F68 | Accessibility | Partial | Labels on sliders and icon buttons, keyboard-reachable controls. Not audited with VoiceOver. |
+| Boost | Extra brightness (100 to 200 percent) by scaling the RGB gains | **Hardware** | Added after the first release. On the Acer: 120% gave gains 60/56/50 and 100% restored 50/47/42 and preset 5 exactly. 8 tests. Whether 200% looks right (clipping) is for the user to judge. |
 | Tooling | Hardware self-test, probe, diagnostics | **Hardware** | `selftest` and `probe` ran on this Mac. `selftest --mock` runs without hardware. |
 
 Not in v1 by design: Samsung and LG Wi-Fi control, HDR and Night Shift toggles, extra-bright modes, Windows. Hardware DDC on Intel Macs is also not built (no `IOFBCopyI2CInterface` path), so Intel Macs get Apple-display control and software dimming only.
@@ -73,7 +74,7 @@ Not in v1 by design: Samsung and LG Wi-Fi control, HDR and Night Shift toggles, 
 
 ## Test results
 
-`swift test`: 62 tests in 13 suites, all passing. Areas: DDC packet vectors including the hardware capture, MCCS parsing of six realistic strings plus junk input, value mapping at three ranges, the command queue (200 requests collapse to at most 5 writes, minimum gap, retry, timeout of a hung transport, capabilities across fragments), sync, presets, schedules including both daylight saving transitions, solar accuracy, display pairing, the display center with fake systems, the socket protocol (mode 0600, versions, error codes), the self-test, and the MCP server.
+`swift test`: 72 tests in 14 suites, all passing. Areas: DDC packet vectors including the hardware capture, MCCS parsing of six realistic strings plus junk input, value mapping at three ranges, the command queue (200 requests collapse to at most 5 writes, minimum gap, retry, timeout of a hung transport, capabilities across fragments), sync, presets, schedules including both daylight saving transitions, solar accuracy, display pairing, the display center with fake systems, the socket protocol (mode 0600, versions, error codes), the self-test, and the MCP server.
 
 Website: 16 pages generated, `check-site.py` reports no broken links, no images without alt text, no external requests, every page under 200 KB (total site 132 KB), and no copied competitor wording. Checked at 375 px: no horizontal scroll.
 
@@ -92,13 +93,15 @@ Website: 16 pages generated, `check-site.py` reports no broken links, no images 
 
 ## Manual checks still needed
 
-See `docs/verification.md`. Not done: media keys (grant Accessibility first), recording and using custom shortcuts, schedules firing on wake, lock, plug-in and monitor connect, hotplug, URL scheme through `open`, clicking the real menu bar item, input switching and power off on a real monitor, volume on a monitor with speakers, a dock or KVM, an Intel Mac, a second identical monitor.
+See `docs/verification.md`. Not done: recording and using custom shortcuts, schedules firing on wake, lock, plug-in and monitor connect, hotplug, URL scheme through `open`, clicking the real menu bar item, input switching and power off on a real monitor, volume on a monitor with speakers, a dock or KVM, an Intel Mac, a second identical monitor.
 
 ## Known issues and limits
 
 - With only the Command Line Tools, the macOS 27 SDK lacks the SwiftUI macro plugin, so `@State` does not compile. `Package.swift` is not enough: plain `swift build` fails. The scripts retry with older SDKs, which works. With Xcode installed this should not occur.
 - `swift test` and `swift build` must not be mixed with `--build-tests` runs in the same `.build` folder, or the testing macro plugin goes missing. `swift package clean` fixes it. `Scripts/check.sh` runs `swift test` only.
-- Ad-hoc signing changes the code identity every build, which resets the Accessibility grant.
+- Ad-hoc signing changes the code identity every build, which resets the Accessibility grant. `Scripts/make-dev-cert.sh` creates a local certificate, and `build-app.sh` uses it automatically, so the grant survives rebuilds.
+- On macOS 27 the Accessibility list is called **Device Control and Data Access**. A grant made against an earlier build can leave a stale system-wide record that blocks the new one. `sudo tccutil reset Accessibility app.displaycontrol.DisplayControl` clears it. Then reopen the app, allow its own prompt, and toggle the switch off and on once.
+- `displaycontrol keys` shows whether the key listener is enabled, trusted and running.
 - `check.sh` prints several failed SDK attempts before it succeeds. Harmless but noisy.
 - The site and app link to placeholder addresses (`displaycontrol.example`, `github.com/OWNER/DisplayControl`). Set `SITE_URL` and `REPO_URL` when building the site, and edit `Links` in `MenuView.swift`.
 - No right-click menu on the status item and no Escape-to-close, because `MenuBarExtra` does not expose them. The same actions are in the popover footer.

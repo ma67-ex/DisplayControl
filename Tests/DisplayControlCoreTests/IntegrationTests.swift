@@ -426,3 +426,105 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
         #expect(URLCommand.parse(URL(string: "displaycontrol://bogus")!) == nil)
     }
 }
+
+@Suite struct BoostTests {
+    func center() async throws -> (DisplayCenter, FakeSystem, String) {
+        let (c, sys) = makeCenter()
+        await c.reload()
+        return (c, sys, try await c.resolve("dell").key)
+    }
+    func gains(_ m: MockDDCMonitor) -> [UInt16?] { [m.value(0x16), m.value(0x18), m.value(0x1A)] }
+
+    @Test func supportedOnlyWhenTheMonitorHasAllThreeGains() async throws {
+        let (c, _, _) = try await center()
+        #expect((await c.snapshots())[1].supported.contains(.boost))
+        let sys = FakeSystem()
+        sys.monitors[2] = MockDDCMonitor(vcp: [DDC.VCP.brightness: .init(current: 50, max: 100)], capabilities: "(vcp(10 16))")
+        let (c2, _) = makeCenter(sys)
+        await c2.reload()
+        #expect(!(await c2.snapshots())[1].supported.contains(.boost))
+    }
+
+    @Test func doublesGainsInProportionAndKeepsWhiteBalance() async throws {
+        let (c, sys, _) = try await center()
+        try await c.set(query: "dell", .boost, to: 200)
+        await c.settle()
+        let g = gains(sys.monitors[2]!)
+        #expect(g == [100, 94, 84])                                   // 50, 47, 42 scaled by two
+        #expect(sys.monitors[2]!.value(DDC.VCP.colorPreset) == 11)    // the monitor flips itself to "user"
+    }
+
+    @Test func partialBoostScalesEachChannel() async throws {
+        let (c, sys, _) = try await center()
+        try await c.set(query: "dell", .boost, to: 150)
+        await c.settle()
+        #expect(gains(sys.monitors[2]!) == [75, 71, 63])              // 70.5 rounds to 71
+    }
+
+    @Test func hundredPutsBackTheOriginalGainsAndPreset() async throws {
+        let (c, sys, _) = try await center()
+        try await c.set(query: "dell", .boost, to: 180)
+        await c.settle()
+        try await c.set(query: "dell", .boost, to: 100)
+        await c.settle()
+        #expect(gains(sys.monitors[2]!) == [50, 47, 42])
+        #expect(sys.monitors[2]!.value(DDC.VCP.colorPreset) == 5)
+    }
+
+    @Test func neverExceedsTheChannelMaximum() async throws {
+        let sys = FakeSystem()
+        sys.monitors[2] = MockDDCMonitor(
+            vcp: [DDC.VCP.brightness: .init(current: 50, max: 100), DDC.VCP.colorPreset: .init(current: 5, max: 11),
+                  DDC.VCP.gainRed: .init(current: 80, max: 100), DDC.VCP.gainGreen: .init(current: 60, max: 100), DDC.VCP.gainBlue: .init(current: 40, max: 100)],
+            capabilities: "(vcp(10 14 16 18 1A))")
+        let (c, _) = makeCenter(sys)
+        await c.reload()
+        try await c.set(query: "dell", .boost, to: 200)
+        await c.settle()
+        // Red can only go from 80 to 100, so the limit is 125 percent and the others scale by the same factor.
+        #expect(gains(sys.monitors[2]!) == [100, 75, 50])
+    }
+
+    @Test func readsBackTheCurrentBoost() async throws {
+        let (c, _, _) = try await center()
+        try await c.set(query: "dell", .boost, to: 140)
+        await c.settle()
+        let d = try await c.resolve("dell")
+        #expect(await d.refresh(.boost) == 140)
+        try await c.set(query: "dell", .boost, to: 100)
+        await c.settle()
+        #expect(await d.refresh(.boost) == 100)
+    }
+
+    @Test func baselineSurvivesARestartWhileBoosted() async throws {
+        let (c, sys, key) = try await center()
+        try await c.set(query: "dell", .boost, to: 160)
+        await c.settle()
+        try await Task.sleep(for: .milliseconds(50))
+        let saved = (await c.snapshots())[1].settings
+        #expect(saved.gainBaseline == [50, 47, 42] && saved.gainBaselinePreset == 5)
+
+        // A new center with the same settings file plays the part of a relaunched app.
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("d.json")
+        try AtomicJSON.write([key: saved], to: url)
+        let c2 = DisplayCenter(system: sys, presets: PresetStore(url: dir.appendingPathComponent("p.json")),
+                               schedules: ScheduleStore(url: dir.appendingPathComponent("s.json")), settingsURL: url, timing: .fast)
+        await c2.reload()
+        let d2 = try await c2.resolve(key)
+        #expect(await d2.refresh(.boost) == 160)                       // still knows it is boosted
+        try await c2.set(d2, .boost, to: 100)
+        await c2.settle()
+        #expect(gains(sys.monitors[2]!) == [50, 47, 42])
+    }
+
+    @Test func outOfRangeValuesAreRejectedByTheRouter() async throws {
+        let (c, _, _) = try await center()
+        let router = CommandRouter(center: c)
+        let bad = await router.handle(IPCRequest(cmd: "set", args: ["display": .string("dell"), "props": .object(["boost": .int(250)])]))
+        #expect(!bad.ok && bad.code == ExitCode.usage)
+        let ok = await router.handle(IPCRequest(cmd: "set", args: ["display": .string("dell"), "props": .object(["boost": .int(120)])]))
+        #expect(ok.ok)
+    }
+}

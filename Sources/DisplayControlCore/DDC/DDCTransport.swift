@@ -45,8 +45,12 @@ public final class MockDDCMonitor: DDCTransport, @unchecked Sendable {
                 DDC.VCP.contrast: .init(current: 70, max: 100),
                 DDC.VCP.volume: .init(current: 20, max: 100),
                 DDC.VCP.inputSource: .init(current: 0x0F, max: 0x1B),
+                DDC.VCP.colorPreset: .init(current: 5, max: 11),
+                DDC.VCP.gainRed: .init(current: 50, max: 100),
+                DDC.VCP.gainGreen: .init(current: 47, max: 100),
+                DDC.VCP.gainBlue: .init(current: 42, max: 100),
             ],
-            capabilities: "(prot(monitor)type(LCD)model(MockView 27)cmds(01 02 03 07 0C E3 F3)vcp(10 12 60(0F 11 12 1B) 62 D6(01 04 05))mccs_ver(2.2))"
+            capabilities: "(prot(monitor)type(LCD)model(MockView 27)cmds(01 02 03 07 0C E3 F3)vcp(10 12 14(05 06 08 0B) 16 18 1A 60(0F 11 12 1B) 62 D6(01 04 05))mccs_ver(2.2))"
         )
     }
 
@@ -89,6 +93,12 @@ public final class MockDDCMonitor: DDCTransport, @unchecked Sendable {
             let code = payload[2]
             let v = UInt16(payload[3]) << 8 | UInt16(payload[4])
             if table[code] != nil { table[code]!.current = min(v, table[code]!.max) }
+            // Quirks measured on a real monitor: editing a gain switches the color preset to "user" (11),
+            // and selecting preset 5 puts that preset's gains back.
+            if [0x16, 0x18, 0x1A].contains(code), table[0x14] != nil { table[0x14]!.current = 11 }
+            if code == 0x14, v == 5 {
+                table[0x16]?.current = 50; table[0x18]?.current = 47; table[0x1A]?.current = 42
+            }
         case DDC.Opcode.getVCP where payload.count == 4:
             pendingReply = vcpReply(for: payload[2])
         case DDC.Opcode.capsRequest where payload.count == 5:
