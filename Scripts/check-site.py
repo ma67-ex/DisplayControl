@@ -49,7 +49,7 @@ for page in sorted(SITE.rglob("*.html")):
         if not target: continue
         if not (page.parent / target).resolve().exists(): errors.append(f"{rel}: broken link {href}")
 
-for need in ("sitemap.xml", "robots.txt", "assets/style.css", "assets/icon.svg", "404.html"):
+for need in ("sitemap.xml", "robots.txt", "assets/style.css", "assets/logo.png", "404.html"):
     if not (SITE / need).exists(): errors.append(f"missing {need}")
 
 print(f"Checked {count} pages.")

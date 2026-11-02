@@ -26,6 +26,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 cp "$BIN/DisplayControlApp" "$APP/Contents/MacOS/DisplayControl"
 cp "$BIN/displaycontrol" "$APP/Contents/Resources/bin/displaycontrol"
 cp Packaging/Info.plist "$APP/Contents/Info.plist"
+cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 mkdir -p dist/completions && cp Packaging/completions/* dist/completions/ 2>/dev/null || true
 
 # Ad-hoc signing changes the code identity on every rebuild, which resets the Accessibility grant.

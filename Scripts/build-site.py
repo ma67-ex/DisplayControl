@@ -13,10 +13,11 @@ SITE_URL = os.environ.get("SITE_URL", "https://displaycontrol.example").rstrip("
 REPO_URL = os.environ.get("REPO_URL", "https://github.com/OWNER/DisplayControl").rstrip("/")
 TODAY = datetime.date.today().isoformat()
 
-LOGO = ('<svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/>'
+LOGO_OLD = ('<svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/>'
         '<circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/>'
         '<rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg>')
 
+LOGO = '<img src="%sassets/logo.png" width="30" height="30" alt="DisplayControl logo">'
 NAV = [("features.html", "Features"), ("docs/index.html", "Docs"), ("faq.html", "FAQ"),
        ("compatibility.html", "Compatibility"), ("download.html", "Download")]
 
@@ -58,14 +59,14 @@ def layout(path, title, desc, body, depth=0, current=None, sidebar=False, jsonld
 <meta name="twitter:title" content="{html.escape(title)}">
 <meta name="twitter:description" content="{html.escape(desc)}">
 <meta name="color-scheme" content="light dark">
-<link rel="icon" href="{rel('assets/icon.svg', depth)}" type="image/svg+xml">
+<link rel="icon" href="{rel('assets/logo.png', depth)}" type="image/png">
 <link rel="stylesheet" href="{rel('assets/style.css', depth)}">
 {jsonld}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site"><div class="wrap">
-<a class="brand" href="{rel('index.html', depth)}">{LOGO}<span>DisplayControl</span></a>
+<a class="brand" href="{rel('index.html', depth)}">{LOGO % ('../' * depth)}<span>DisplayControl</span></a>
 <nav class="main" aria-label="Main">{nav}</nav>
 </div></header>
 <div class="wrap">{main}</div>
@@ -503,7 +504,8 @@ layout("docs/index.html", "Documentation | DisplayControl", "Guides for installi
 # ---------------------------------------------------------------- assets
 
 (SITE / "assets").mkdir(exist_ok=True)
-(SITE / "assets" / "icon.svg").write_text(LOGO.replace('role="img" aria-label="DisplayControl logo"', 'xmlns="http://www.w3.org/2000/svg"'), encoding="utf-8")
+import shutil
+shutil.copy(ROOT / "Packaging" / "AppIcon-site.png", SITE / "assets" / "logo.png")
 (SITE / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n", encoding="utf-8")
 urls = "".join(f"<url><loc>{SITE_URL}/{p}</loc><lastmod>{TODAY}</lastmod></url>" for p, _, _ in sorted(pages))
 (SITE / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls + "</urlset>\n", encoding="utf-8")

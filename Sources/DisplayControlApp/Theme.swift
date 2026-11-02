@@ -238,18 +238,14 @@ struct IconButton: View {
     }
 }
 
-/// The app mark: the same sun-over-a-slider used on the website.
+/// The app mark: the app's own icon, so the window and the Dock agree.
 struct AppMark: View {
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.amber)
-            Circle().fill(.white).frame(width: 9, height: 9).offset(x: 4, y: -3.5)
-            Capsule().fill(.white.opacity(0.55)).frame(width: 15, height: 2.6).offset(y: 4.5)
-            Capsule().fill(.white).frame(width: 9, height: 2.6).offset(x: -3, y: 4.5)
-        }
-        .frame(width: 24, height: 24)
-        .shadow(color: Theme.amber.opacity(0.5), radius: 5)
-        .accessibilityHidden(true)
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable().interpolation(.high)
+            .frame(width: 30, height: 30)
+            .shadow(color: Theme.amber.opacity(0.35), radius: 6)        // lifts the dark icon off a dark window
+            .accessibilityHidden(true)
     }
 }
 
