@@ -50,12 +50,28 @@ struct GeneralTab: View {
 
     var body: some View {
         Form {
-            Section("Appearance") {
-                Picker("Appearance", selection: Binding(get: { model.settings.appearance }, set: { v in model.updateAppSettings { $0.appearance = v } })) {
-                    ForEach(AppearanceMode.allCases, id: \.self) { Label($0.title, systemImage: $0.symbol).tag($0) }
+            Section {
+                HStack {
+                    Label("Appearance", systemImage: "paintbrush").foregroundStyle(.primary)
+                    Text(model.settings.appearance.title).font(.callout).foregroundStyle(.secondary)
+                    Spacer()
+                    // One small icon on the right: shows the current mode, opens the three choices.
+                    Menu {
+                        ForEach(AppearanceMode.allCases, id: \.self) { m in
+                            Button { model.updateAppSettings { $0.appearance = m } } label: {
+                                Label(m.title, systemImage: model.settings.appearance == m ? "checkmark" : m.symbol)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: model.settings.appearance.symbol)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Color.primary.opacity(0.08)))
+                    }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .help("Appearance: \(model.settings.appearance.title)")
+                    .accessibilityLabel("Appearance: \(model.settings.appearance.title)")
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
                 Toggle("Moving stars in the background", isOn: Binding(get: { model.settings.animatedStars }, set: { v in model.updateAppSettings { $0.animatedStars = v } }))
                 Text("Night is a dark theme for evenings. The stars drift only while a window is open, and stop if Reduce Motion is on.").font(.caption).foregroundStyle(.secondary)
             }

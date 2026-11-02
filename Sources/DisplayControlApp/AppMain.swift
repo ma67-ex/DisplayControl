@@ -266,7 +266,17 @@ final class AppEnvironment {
 
     // MARK: Windows
 
+    /// Hides the menu bar window. SwiftUI's MenuBarExtra window stays open until something dismisses it, so
+    /// opening Settings from inside it would leave both on screen.
+    func dismissMenuBarWindow() {
+        for w in NSApp.windows where w !== settingsWindow && w !== onboardingWindow {
+            let name = String(describing: type(of: w))
+            if name.contains("MenuBarExtra") || name.contains("StatusBarWindow") { w.orderOut(nil) }
+        }
+    }
+
     func openSettings(_ tab: SettingsTab) {
+        dismissMenuBarWindow()
         let view = SettingsView(model: model, tab: tab)
         let w = settingsWindow ?? NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 520),
                                            styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
