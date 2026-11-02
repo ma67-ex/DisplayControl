@@ -77,7 +77,10 @@ public final class MediaKeyTap: @unchecked Sendable {
 
     @discardableResult
     public func start() -> Bool {
-        guard tap == nil, Self.hasPermission else { return tap != nil }
+        guard tap == nil, Self.hasPermission else {
+            if tap == nil { Log.keys.info("media key tap not started: Accessibility permission missing") }
+            return tap != nil
+        }
         let mask = CGEventMask(1 << 14)                       // NSSystemDefined
         let me = Unmanaged.passRetained(self)
         box = me
@@ -88,8 +91,10 @@ public final class MediaKeyTap: @unchecked Sendable {
             return tapObj.process(type: type, event: event)
         }, userInfo: me.toOpaque()) else {
             me.release(); box = nil
+            Log.keys.error("media key tap could not be created")
             return false
         }
+        Log.keys.info("media key tap started")
         tap = t
         let s = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, t, 0)
         source = s
@@ -120,8 +125,13 @@ public final class MediaKeyTap: @unchecked Sendable {
         let flags = data1 & 0x0000FFFF
         let isDown = ((flags & 0xFF00) >> 8) == 0xA
         let isRepeat = (flags & 0x1) != 0
-        guard let key = MediaKey(rawValue: code) else { return Unmanaged.passUnretained(event) }
-        return handler(key, isDown, isRepeat) ? nil : Unmanaged.passUnretained(event)
+        guard let key = MediaKey(rawValue: code) else {
+            Log.keys.debug("system key code \(code) ignored")
+            return Unmanaged.passUnretained(event)
+        }
+        let swallow = handler(key, isDown, isRepeat)
+        if isDown && !isRepeat { Log.keys.info("key \(key.rawValue) down, \(swallow ? "taken for an external display" : "left to macOS")") }
+        return swallow ? nil : Unmanaged.passUnretained(event)
     }
 }
 

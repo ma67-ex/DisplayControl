@@ -446,7 +446,11 @@ struct KeyboardTab: View {
                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                     }
                 }
-                Text("The keys control the display under the mouse pointer. The built-in screen keeps working normally.").font(.caption).foregroundStyle(.secondary)
+                if model.settings.mediaKeysEnabled {
+                    Label(model.keyTapRunning ? "Keys are active" : "Keys are not active yet", systemImage: model.keyTapRunning ? "checkmark.circle.fill" : "circle.dashed")
+                        .foregroundStyle(model.keyTapRunning ? Color.green : Color.secondary)
+                }
+                Text("The keys control the display under the mouse pointer, so move the pointer onto the external display first. With the pointer on the built-in screen, macOS handles the keys as usual.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Custom shortcuts") {
                 ForEach(HotkeyAction.allCases, id: \.self) { a in

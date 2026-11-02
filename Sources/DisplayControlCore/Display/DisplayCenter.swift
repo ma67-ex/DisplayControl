@@ -111,8 +111,7 @@ public actor DisplayCenter: PresetTarget {
     private var topologyObservers: [UUID: @Sendable () -> Void] = [:]
     private var connectionObservers: [UUID: @Sendable (_ key: String, _ connected: Bool) -> Void] = [:]
     private var redetectTasks: [String: Task<Void, Never>] = [:]
-    private var latest: [String: (ManagedDisplay, DisplayProperty, Int, DisplayChange.Origin)] = [:]
-    private var working: Set<String> = []
+    private nonisolated let slots = LatestValueSlots()
 
     public init(system: DisplaySystem, presets: PresetStore = PresetStore(), schedules: ScheduleStore = ScheduleStore(),
                 settingsURL: URL = Paths.displaysFile, timing: DDCTiming = DDCTiming()) {
@@ -302,26 +301,28 @@ public actor DisplayCenter: PresetTarget {
         }
     }
 
-    /// Fire-and-forget set for sliders: the newest value per control always wins, in order,
-    /// and at most one write per control is in flight. Never reorders a drag.
-    public func submit(_ display: ManagedDisplay, _ property: DisplayProperty, to value: Int, origin: DisplayChange.Origin = .user) async {
-        let slot = await display.key + "/" + property.rawValue
-        latest[slot] = (display, property, value, origin)
-        guard !working.contains(slot) else { return }
-        working.insert(slot)
-        Task { await self.drain(slot) }
+    /// Fire-and-forget set for sliders. Synchronous on purpose: values are recorded in call order, so the
+    /// newest value for a control always wins, and at most one write per control is in flight.
+    /// (Spawning one task per slider tick lets ticks finish out of order, and an old value can land last.)
+    public nonisolated func submit(key: String, _ property: DisplayProperty, to value: Int, origin: DisplayChange.Origin = .user) {
+        let slot = key + "/" + property.rawValue
+        Log.ddc.info("slider submit \(property.rawValue, privacy: .public)=\(value, privacy: .public)")
+        if slots.put(slot, Pending(key: key, property: property, value: value, origin: origin)) {
+            Task { await self.runSlot(slot) }
+        }
     }
 
-    private func drain(_ slot: String) async {
-        while let (d, p, v, o) = latest.removeValue(forKey: slot) {
-            do { try await set(d, p, to: v, origin: o) } catch { Log.ddc.error("set failed: \(String(describing: error))") }
+    private func runSlot(_ slot: String) async {
+        while let p = slots.take(slot) {
+            Log.ddc.info("slider send \(p.property.rawValue, privacy: .public)=\(p.value, privacy: .public)")
+            do { try await set(try await resolve(p.key), p.property, to: p.value, origin: p.origin) }
+            catch { Log.ddc.error("set failed: \(String(describing: error))") }
         }
-        working.remove(slot)
     }
 
     /// Waits for every pending slider write (used by tests and by quit).
     public func settle() async {
-        while !working.isEmpty { try? await Task.sleep(for: .milliseconds(5)) }
+        while slots.isBusy { try? await Task.sleep(for: .milliseconds(5)) }
         for d in displays.values { if let ddc = await d.backend as? DDCBackend { await ddc.device.waitUntilIdle() } }
     }
 
@@ -464,4 +465,39 @@ public actor DisplayCenter: PresetTarget {
     public func reapplySoftwareDimming() async {
         for d in displays.values { if let s = await d.backend as? SoftwareBackend { s.reapply() } }
     }
+}
+
+
+struct Pending: Sendable {
+    let key: String
+    let property: DisplayProperty
+    let value: Int
+    let origin: DisplayChange.Origin
+}
+
+/// Latest-value-wins slots with a single worker per slot. All state is behind one lock, so `put` is
+/// ordered exactly as it is called.
+final class LatestValueSlots: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latest: [String: Pending] = [:]
+    private var working = Set<String>()
+
+    /// Records the value. Returns true when the caller must start a worker for this slot.
+    func put(_ slot: String, _ p: Pending) -> Bool {
+        lock.withLock {
+            latest[slot] = p
+            return working.insert(slot).inserted
+        }
+    }
+
+    /// Next value to send, or nil (and the worker is released) when none is waiting.
+    func take(_ slot: String) -> Pending? {
+        lock.withLock {
+            if let p = latest.removeValue(forKey: slot) { return p }
+            working.remove(slot)
+            return nil
+        }
+    }
+
+    var isBusy: Bool { lock.withLock { !working.isEmpty || !latest.isEmpty } }
 }

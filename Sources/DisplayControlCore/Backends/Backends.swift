@@ -219,6 +219,7 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
         case .rotation: raw = Self.orientationCode(forDegrees: value)
         case .input: raw = max(0, min(0xFFFF, value))
         }
+        Log.ddc.info("backend set code \(code, privacy: .public) raw \(raw, privacy: .public)")
         await device.set(code, raw: UInt16(raw))
         if verifyReadback, property.isPercent || property == .input {
             lock.withLock { lastTarget[code] = raw }
@@ -231,6 +232,7 @@ public final class DDCBackend: DisplayBackend, @unchecked Sendable {
             guard let self else { return }
             let target = self.lock.withLock { self.lastTarget[code] }
             guard let target, let r = try? await self.device.read(code) else { return }
+            Log.ddc.info("verify code \(code, privacy: .public): wrote raw \(target, privacy: .public), monitor reports \(r.current, privacy: .public)")
             if abs(Int(r.current) - target) > 1 {
                 await self.device.setUnreliable(true)
                 self.onUnreliable?()

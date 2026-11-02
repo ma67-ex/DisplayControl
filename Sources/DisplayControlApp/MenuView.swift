@@ -1,9 +1,17 @@
 import SwiftUI
 import DisplayControlCore
 
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 struct MenuView: View {
     @ObservedObject var model: AppModel
     let openSettings: (SettingsTab) -> Void
+    /// A ScrollView has no natural height, so inside a window that sizes itself to its content it
+    /// collapses to nothing. Measure the cards and give the ScrollView exactly that height, up to a cap.
+    @State private var cardsHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -20,8 +28,10 @@ struct MenuView: View {
                             DisplayCard(model: model, display: d)
                         }
                     }
+                    .background(GeometryReader { Color.clear.preference(key: ContentHeightKey.self, value: $0.size.height) })
                 }
-                .frame(maxHeight: 520)
+                .frame(height: min(max(cardsHeight, 80), 520))
+                .onPreferenceChange(ContentHeightKey.self) { cardsHeight = $0 }
             }
             if !model.presets.isEmpty { presetRow }
             if let s = model.lastPresetSummary {

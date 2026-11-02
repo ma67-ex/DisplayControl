@@ -51,6 +51,7 @@ final class AppEnvironment {
     private var reconfigureTask: Task<Void, Never>?
     private var signalSources: [DispatchSourceSignal] = []
     private var started = false
+    private var permissionPoll: Task<Void, Never>?
 
     private init() {
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent("displaycontrol-demo")
@@ -141,6 +142,9 @@ final class AppEnvironment {
         } else {
             tap?.stop(); tap = nil
         }
+        model.keyTapRunning = tap?.isRunning ?? false
+        // The grant happens in System Settings after the toggle, so keep checking until it arrives.
+        if current.mediaKeysEnabled && !MediaKeyTap.hasPermission { waitForPermission() } else { permissionPoll?.cancel(); permissionPoll = nil }
 
         // Custom shortcuts.
         HotKeyCenter.shared.unregisterAll()
@@ -157,6 +161,22 @@ final class AppEnvironment {
         }
     }
 
+    /// Checks every two seconds, and only while the keys are switched on but not yet permitted.
+    private func waitForPermission() {
+        guard permissionPoll == nil else { return }
+        permissionPoll = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                if MediaKeyTap.hasPermission {
+                    self?.permissionPoll = nil
+                    self?.model.accessibilityGranted = true
+                    self?.applyInputSettings()
+                    return
+                }
+            }
+        }
+    }
+
     // MARK: System events
 
     private func installSystemObservers() {
@@ -168,6 +188,12 @@ final class AppEnvironment {
             if flags.contains(.beginConfigurationFlag) { return }
             DispatchQueue.main.async { Task { @MainActor in AppEnvironment.shared.scheduleReconfigure(after: .milliseconds(500)) } }
         }, nil)
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.settings.current.mediaKeysEnabled, self.model.keyTapRunning == false else { return }
+                self.applyInputSettings()
+            }
+        }
         // Monitors need a moment after wake before they answer DDC; gamma is reset by macOS on wake.
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.scheduleReconfigure(after: .seconds(2)) }
@@ -259,8 +285,14 @@ final class AppEnvironment {
     /// Development aid: renders the main views to PNG files without needing screen recording permission.
     func writeSnapshots(to directory: String) {
         try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        func render<V: View>(_ view: V, _ size: NSSize, _ name: String) {
+        func render<V: View>(_ view: V, _ size: NSSize, _ name: String, fitHeight: Bool = false) {
             let host = NSHostingView(rootView: view)
+            var size = size
+            if fitHeight {
+                // Same sizing rule as the real menu bar window: the content decides its own height.
+                host.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: 10))
+                size.height = max(host.fittingSize.height, 40)
+            }
             let win = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
             win.contentView = host
             win.setFrameOrigin(NSPoint(x: -4000, y: -4000))
@@ -274,7 +306,7 @@ final class AppEnvironment {
                 try? png.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
             }
         }
-        render(MenuView(model: model) { _ in }.background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 330, height: 560), "popover")
+        render(MenuView(model: model) { _ in }.background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 330, height: 560), "popover", fitHeight: true)
         for (tab, name) in [(SettingsTab.general, "settings-general"), (.displays, "settings-displays"), (.presets, "settings-presets"),
                             (.schedules, "settings-schedules"), (.keyboard, "settings-keyboard"), (.commandLine, "settings-cli"), (.about, "settings-about")] {
             render(SettingsView(model: model, tab: tab).background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 640, height: 520), name)

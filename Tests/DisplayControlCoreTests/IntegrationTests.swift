@@ -361,10 +361,32 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
     @Test func submitKeepsLatestValueInOrder() async throws {
         let (c, sys) = makeCenter()
         await c.reload()
-        let d = try await c.resolve("dell")
-        for v in 1...100 { await c.submit(d, .brightness, to: v) }
+        let key = try await c.resolve("dell").key
+        for v in 1...100 { c.submit(key: key, .brightness, to: v) }
         await c.settle()
         #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 100)
+    }
+
+    /// The reported bug: dragging a slider down to 1 ended on an older value (10) because ticks raced.
+    @Test func draggingDownEndsOnTheFinalValue() async throws {
+        for round in 0..<20 {
+            let (c, sys) = makeCenter()
+            await c.reload()
+            let key = try await c.resolve("dell").key
+            for v in stride(from: 90, through: 1, by: -1) { c.submit(key: key, .brightness, to: v) }
+            await c.settle()
+            #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 1, "round \(round)")
+        }
+    }
+
+    @Test func submitsFromManyThreadsStillEndOnTheLastCall() async throws {
+        let (c, sys) = makeCenter()
+        await c.reload()
+        let key = try await c.resolve("dell").key
+        // Calls are made one after another from this task, even though writes run on other threads.
+        for v in [80, 10, 55, 3, 70, 1] { c.submit(key: key, .brightness, to: v); await Task.yield() }
+        await c.settle()
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 1)
     }
 
     @Test func triggerPairingForEvents() {

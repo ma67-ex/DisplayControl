@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
     @Published var lastPresetSummary: String?
     @Published var settings = AppSettings()
     @Published var accessibilityGranted = MediaKeyTap.hasPermission
+    @Published var keyTapRunning = false
     @Published var selfTest: SelfTestReport?
     @Published var runningSelfTest = false
 
@@ -67,10 +68,7 @@ final class AppModel: ObservableObject {
     /// Slider changes: update the UI immediately, send to the monitor through the coalescing queue.
     func setValue(_ key: String, _ property: DisplayProperty, _ value: Int) {
         if let i = displays.firstIndex(where: { $0.key == key }) { displays[i].values[property.rawValue] = value }
-        Task { [center] in
-            guard let d = try? await center.resolve(key) else { return }
-            await center.submit(d, property, to: value)
-        }
+        center.submit(key: key, property, to: value)        // synchronous, ordered, newest value wins
     }
 
     func setMode(_ key: String, _ mode: ControlMode?) {
