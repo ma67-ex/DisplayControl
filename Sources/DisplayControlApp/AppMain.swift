@@ -10,11 +10,12 @@ final class KeyTargets: @unchecked Sendable {
 
     func update(_ snaps: [DisplaySnapshot]) {
         lock.withLock {
-            byID = Dictionary(uniqueKeysWithValues: snaps.filter { !$0.isBuiltIn }.map { (CGDirectDisplayID($0.id), Set($0.supported)) })
+            byID = Dictionary(uniqueKeysWithValues: snaps.map { (CGDirectDisplayID($0.id), Set($0.supported)) })
         }
     }
 
-    /// True when the event should be taken for an external display. Built-in displays are left to macOS.
+    /// True when the event should be taken for a display that supports it. A built-in screen is taken only for brightness,
+    /// so its step size applies; macOS keeps the volume and mute keys.
     func shouldSwallow(_ key: MediaKey, isDown: Bool, controlAll: Bool) -> Bool {
         if !isDown { return lock.withLock { swallowed.remove(key.rawValue) != nil } }   // swallow the key-up of a swallowed key-down
         let needed: DisplayProperty = (key == .brightnessUp || key == .brightnessDown) ? .brightness : (key == .mute ? .mute : .volume)
@@ -86,7 +87,8 @@ final class AppEnvironment {
                                 "running": .bool(self.model.keyTapRunning), "pid": .int(Int(getpid())), "bundle": .string(Bundle.main.bundlePath)])
             }
         }
-        model.onSettingsChanged = { [weak self] in self?.applyInputSettings() }
+        applyAppearance()
+        model.onSettingsChanged = { [weak self] in self?.applyAppearance(); self?.applyInputSettings() }
         model.onPresetsChanged = { [weak self] in self?.applyInputSettings() }
         model.onSchedulesChanged = { [weak self] in Task { await self?.scheduler.reconfigure() } }
 
@@ -132,6 +134,11 @@ final class AppEnvironment {
     }
 
     // MARK: Keys and hotkeys
+
+    /// Light, Night, or follow the system. Setting it on the app restyles every window, including the menu bar window.
+    func applyAppearance() {
+        NSApp.appearance = settings.current.appearance.nsAppearance
+    }
 
     func applyInputSettings() {
         let current = settings.current
@@ -301,33 +308,39 @@ final class AppEnvironment {
     /// Development aid: renders the main views to PNG files without needing screen recording permission.
     func writeSnapshots(to directory: String) {
         try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        func render<V: View>(_ view: V, _ size: NSSize, _ name: String, fitHeight: Bool = false) {
+        let night = NSAppearance(named: .darkAqua), light = NSAppearance(named: .aqua)
+        func render<V: View>(_ view: V, _ size: NSSize, _ name: String, fitHeight: Bool = false, appearance: NSAppearance? = nil) {
             let host = NSHostingView(rootView: view)
             var size = size
+            host.appearance = appearance
             if fitHeight {
                 // Same sizing rule as the real menu bar window: the content decides its own height.
                 host.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: 10))
                 size.height = max(host.fittingSize.height, 40)
             }
             let win = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+            win.appearance = appearance
             win.contentView = host
             win.setFrameOrigin(NSPoint(x: -4000, y: -4000))
             win.orderBack(nil)
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
             guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
             host.cacheDisplay(in: host.bounds, to: rep)
             if let png = rep.representation(using: .png, properties: [:]) {
                 try? png.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
             }
         }
-        render(MenuView(model: model) { _ in }.background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 330, height: 560), "popover", fitHeight: true)
-        for (tab, name) in [(SettingsTab.general, "settings-general"), (.displays, "settings-displays"), (.presets, "settings-presets"),
-                            (.schedules, "settings-schedules"), (.keyboard, "settings-keyboard"), (.commandLine, "settings-cli"), (.about, "settings-about")] {
-            render(SettingsView(model: model, tab: tab).background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 640, height: 520), name)
+        let pop = MenuView(model: model) { _ in }
+        render(pop, NSSize(width: 344, height: 560), "popover-night", fitHeight: true, appearance: night)
+        render(pop, NSSize(width: 344, height: 560), "popover-light", fitHeight: true, appearance: light)
+        render(GlowGallery(), NSSize(width: 344, height: 560), "glow-night", fitHeight: true, appearance: night)
+        render(GlowGallery(), NSSize(width: 344, height: 560), "glow-light", fitHeight: true, appearance: light)
+        for (tab, name) in [(SettingsTab.general, "settings-general"), (.displays, "settings-displays"), (.keyboard, "settings-keyboard")] {
+            render(SettingsView(model: model, tab: tab), NSSize(width: 640, height: 520), name + "-night", appearance: night)
+            render(SettingsView(model: model, tab: tab), NSSize(width: 640, height: 520), name + "-light", appearance: light)
         }
-        render(OnboardingView(model: model) {}.background(Color(nsColor: .windowBackgroundColor)), NSSize(width: 480, height: 340), "onboarding")
     }
 
     // MARK: URL scheme
@@ -363,5 +376,30 @@ struct DisplayControlApp: App {
             Image(systemName: "display")
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+
+/// Development aid: the glow slider at several values, so the glow's growth can be checked side by side.
+struct GlowGallery: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach([0, 15, 35, 60, 85, 100], id: \.self) { v in
+                HStack(spacing: 8) {
+                    Text("\(v)").font(.system(size: 11, design: .monospaced)).frame(width: 26, alignment: .trailing).foregroundStyle(.secondary)
+                    GlowSlider(value: .constant(v), range: 0...100, label: "Brightness \(v)")
+                }
+            }
+            ForEach([100, 150, 200], id: \.self) { v in
+                HStack(spacing: 8) {
+                    Text("\(v)").font(.system(size: 11, design: .monospaced)).frame(width: 26, alignment: .trailing).foregroundStyle(.secondary)
+                    GlowSlider(value: .constant(v), range: 100...200, tint: Theme.hot, label: "Boost \(v)")
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 344)
+        .background(AppBackdrop())
     }
 }

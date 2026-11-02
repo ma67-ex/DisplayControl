@@ -31,12 +31,13 @@ def rel(path, depth):
 
 
 def layout(path, title, desc, body, depth=0, current=None, sidebar=False, jsonld=""):
-    nav = "".join(f'<a href="{rel(h, depth)}"{" aria-current=\"page\"" if current == h else ""}>{html.escape(t)}</a>' for h, t in NAV)
+    cur = ' aria-current="page"'
+    nav = "".join('<a href="%s"%s>%s</a>' % (rel(h, depth), cur if current == h else "", html.escape(t)) for h, t in NAV)
     canonical = f"{SITE_URL}/{path}"
     pages.append((path, title, desc))
     side = ""
     if sidebar:
-        items = "".join(f'<a href="{rel("docs/" + s + ".html", depth)}"{" aria-current=\"page\"" if current == "docs/" + s + ".html" else ""}>{t}</a>' for s, t in DOCS)
+        items = "".join('<a href="%s"%s>%s</a>' % (rel("docs/" + s + ".html", depth), cur if current == "docs/" + s + ".html" else "", t) for s, t in DOCS)
         side = f'<aside class="side" aria-label="Documentation"><a href="{rel("docs/index.html", depth)}">All docs</a>{items}</aside>'
         main = f'<div class="docs">{side}<main id="main" class="prose">{body}</main></div>'
     else:
@@ -191,6 +192,11 @@ feat = """
 <li><strong>URL scheme:</strong> <code>displaycontrol://preset/Evening</code> works from Terminal, scripts and any app that opens URLs.</li>
 <li><strong>MCP server:</strong> <code>displaycontrol mcp</code> lets an AI assistant list and change displays and apply presets.</li>
 <li><strong>Not implemented:</strong> native Siri, Spotlight and Shortcuts actions. They would need a full Xcode build. Until then, use the URL scheme or the command line from a Shortcuts "Run Shell Script" action.</li></ul>
+
+<h2>Look and feel</h2>
+<ul>
+<li><strong>Light, Night or match the system.</strong> One button in the menu bar window cycles through them; the choice is also in Settings, General.</li>
+<li><strong>A brightness glow.</strong> The brightness slider and the display icon glow in proportion to the level: brighter and wider as you raise it, dimmer as you lower it, and nearly white when boosted. Reduce Motion turns the flare off.</li></ul>
 
 <h2>Built to be trusted</h2>
 <ul>

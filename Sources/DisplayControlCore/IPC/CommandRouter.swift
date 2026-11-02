@@ -159,6 +159,17 @@ public struct CommandRouter: Sendable {
             return .success(.object(["code": .string(String(format: "%02X", code)), "before": .int(Int(before.current)),
                                      "requested": .int(value), "after": .int(Int(after.current)), "max": .int(Int(after.max))]))
 
+        case "nudge":
+            // Same code path as the brightness and volume keys: one press changes the value by the display's step size.
+            let d = try await display(a)
+            guard let name = a["property"]?.stringValue, let p = DisplayProperty(rawValue: name), p.isPercent else {
+                throw CenterError.invalidValue("property must be brightness, contrast or volume")
+            }
+            let dir = a["direction"]?.stringValue == "down" ? -1 : 1
+            try await center.adjust(d, p, steps: dir)
+            await center.settle()
+            return .success(.object(["value": .int(await d.refresh(p) ?? -1), "step": .int(await d.settings.stepSize)]))
+
         case "keys.status":
             return .success(await keyStatus?() ?? .null)
 

@@ -274,3 +274,120 @@ extension RecordingTarget { func setFail(_ k: Set<String>) { failKeys = k } }
         #expect(InputSource.parse("nonsense") == nil)
     }
 }
+
+@Suite struct GlowTests {
+    @Test func glowGrowsWithBrightnessAndNeverShrinksAsItRises() {
+        var lastIntensity = -1.0, lastRadius = -1.0, lastOpacity = -1.0
+        for v in 0...100 {
+            let t = GlowMath.normalized(v, range: 0...100)
+            #expect(GlowMath.intensity(t) >= lastIntensity)
+            #expect(GlowMath.radius(t) >= lastRadius)
+            #expect(GlowMath.opacity(t) >= lastOpacity)
+            lastIntensity = GlowMath.intensity(t); lastRadius = GlowMath.radius(t); lastOpacity = GlowMath.opacity(t)
+        }
+    }
+
+    @Test func endpointsAndBounds() {
+        #expect(GlowMath.intensity(0) == 0)
+        #expect(GlowMath.intensity(1) == 1)
+        #expect(GlowMath.intensity(-3) == 0 && GlowMath.intensity(9) == 1)
+        #expect(GlowMath.radius(0) == 3 && GlowMath.radius(1) == 24)
+        #expect(GlowMath.opacity(0) > 0)                                   // never fully dark
+        #expect(GlowMath.opacity(1) == 1)
+    }
+
+    @Test func boostRangeUsesItsOwnScale() {
+        #expect(GlowMath.normalized(100, range: 100...200) == 0)
+        #expect(GlowMath.normalized(150, range: 100...200) == 0.5)
+        #expect(GlowMath.normalized(250, range: 100...200) == 1)
+        #expect(GlowMath.normalized(5, range: 5...5) == 0)
+    }
+
+    @Test func pulseHasTheRightSign() {
+        #expect(GlowMath.pulse(delta: 5) == 1)       // brightening flares
+        #expect(GlowMath.pulse(delta: -5) == -1)     // dimming dips
+        #expect(GlowMath.pulse(delta: 0) == 0)
+    }
+
+    @Test func appearanceCyclesAndPersists() throws {
+        #expect(AppearanceMode.system.next == .light && AppearanceMode.light.next == .night && AppearanceMode.night.next == .system)
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let store = SettingsStore(url: dir.appendingPathComponent("s.json"))
+        store.update { $0.appearance = .night }
+        #expect(SettingsStore(url: dir.appendingPathComponent("s.json")).current.appearance == .night)
+        // An older settings file without the key still loads, defaulting to the system appearance.
+        try Data(#"{"mediaKeysEnabled":true}"#.utf8).write(to: dir.appendingPathComponent("old.json"))
+        #expect(SettingsStore(url: dir.appendingPathComponent("old.json")).current.appearance == .system)
+    }
+}
+
+@Suite struct SettingsCompatibilityTests {
+    @Test func olderSettingsFilesKeepTheirValues() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("s.json")
+        // Exactly what an earlier build wrote: no "appearance" key.
+        try Data(#"{"controlAllDisplays":true,"hotkeys":[],"mediaKeysEnabled":true,"menuBarSymbol":"display","showOnboarding":false}"#.utf8).write(to: url)
+        let s = SettingsStore(url: url).current
+        #expect(s.mediaKeysEnabled && s.controlAllDisplays && !s.showOnboarding)
+        #expect(s.appearance == .system)
+    }
+
+    @Test func olderDisplaySettingsStillLoad() throws {
+        let json = #"{"stepSize":10,"volumeCap":100,"hidden":false,"syncScale":1,"syncConstant":0,"doubleWrite":false}"#
+        let d = try JSONDecoder().decode(DisplaySettings.self, from: Data(json.utf8))
+        #expect(d.stepSize == 10 && d.gainBaseline == nil)
+    }
+}
+
+@Suite struct StarTests {
+    @Test func skyIsDeterministicAndInRange() {
+        let a = StarMath.generate(), b = StarMath.generate()
+        #expect(a == b && a.count == 70)
+        for s in a {
+            #expect((0..<1).contains(s.x) && (0..<1).contains(s.y))
+            #expect(s.size > 0 && s.speed > 0)
+        }
+        #expect(Set(a.map(\.layer)) == [0, 1, 2])
+    }
+
+    @Test func starsMoveAndAlwaysStayOnScreen() {
+        let s = StarMath.generate()[5]
+        let p0 = StarMath.position(s, at: 0), p1 = StarMath.position(s, at: 30)
+        #expect(p0.x != p1.x || p0.y != p1.y)                         // they drift
+        for t in stride(from: 0.0, through: 3600, by: 97) {            // a whole hour, wrapping many times
+            let p = StarMath.position(s, at: t)
+            #expect((0..<1).contains(p.x) && (0..<1).contains(p.y), "t=\(t)")
+        }
+        #expect(StarMath.position(s, at: -50).x >= 0)                  // and negative time cannot break it
+    }
+
+    @Test func nearStarsMoveFasterThanFarOnes() {
+        #expect(StarMath.layerSpeed[0] < StarMath.layerSpeed[1] && StarMath.layerSpeed[1] < StarMath.layerSpeed[2])
+        #expect(StarMath.layerSize[0] < StarMath.layerSize[2])
+    }
+
+    @Test func twinkleDimsButNeverVanishes() {
+        let s = StarMath.generate()[3]
+        var lo = 2.0, hi = -1.0
+        for t in stride(from: 0.0, to: 60, by: 0.1) { let v = StarMath.twinkle(s, at: t); lo = min(lo, v); hi = max(hi, v) }
+        #expect(lo >= 0.35 && hi <= 1 && hi - lo > 0.3)               // visible variation, never invisible
+    }
+
+    @Test func shootingStarAppearsBrieflyAndRepeats() {
+        #expect(StarMath.shootingStar(at: 0.5) != nil)
+        #expect(StarMath.shootingStar(at: 5) == nil)
+        #expect(StarMath.shootingStar(at: 11.4) != nil)
+        #expect(StarMath.shootingStar(at: -1) == nil)
+        if let s = StarMath.shootingStar(at: 0.55) { #expect(abs(s.progress - 0.5) < 0.01) }
+    }
+
+    @Test func starSettingDefaultsToOnAndSurvivesOldFiles() throws {
+        #expect(AppSettings().animatedStars)
+        let off = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"animatedStars":false}"#.utf8))
+        #expect(!off.animatedStars)
+        let old = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"mediaKeysEnabled":true}"#.utf8))
+        #expect(old.animatedStars && old.mediaKeysEnabled)
+    }
+}

@@ -23,13 +23,40 @@ public enum HotkeyAction: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public enum AppearanceMode: String, Codable, CaseIterable, Sendable {
+    case system, light, night
+
+    public var title: String {
+        switch self { case .system: return "Match system"; case .light: return "Light"; case .night: return "Night" }
+    }
+    /// Next mode when a button cycles through them.
+    public var next: AppearanceMode {
+        switch self { case .system: return .light; case .light: return .night; case .night: return .system }
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
+    public var appearance: AppearanceMode = .system
+    /// Drifting, twinkling stars behind the windows. Drawn only while a window is visible.
+    public var animatedStars = true
     public var mediaKeysEnabled = false
     public var controlAllDisplays = false
     public var hotkeys: [HotkeyAction: HotKeySpec] = [:]
     public var showOnboarding = true
     public var menuBarSymbol = "display"
     public init() {}
+
+    // Tolerant decoding: a file written by an older version lacks newer keys, and must not reset everything.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? .system
+        animatedStars = try c.decodeIfPresent(Bool.self, forKey: .animatedStars) ?? true
+        mediaKeysEnabled = try c.decodeIfPresent(Bool.self, forKey: .mediaKeysEnabled) ?? false
+        controlAllDisplays = try c.decodeIfPresent(Bool.self, forKey: .controlAllDisplays) ?? false
+        hotkeys = try c.decodeIfPresent([HotkeyAction: HotKeySpec].self, forKey: .hotkeys) ?? [:]
+        showOnboarding = try c.decodeIfPresent(Bool.self, forKey: .showOnboarding) ?? true
+        menuBarSymbol = try c.decodeIfPresent(String.self, forKey: .menuBarSymbol) ?? "display"
+    }
 }
 
 public final class SettingsStore: @unchecked Sendable {

@@ -20,6 +20,7 @@ Commands:
   caps <display>                      list the controls a DDC monitor reports
   vcp <display> <code>                read one raw DDC control (code in hex like DC, or 0xDC)
   vcp-set <display> <code> <value>    write one raw DDC control the monitor advertises, and read it back
+  nudge <display> <brightness|contrast|volume> <up|down>   one key press worth of change (uses the step size)
   keys                                show whether the keyboard keys are enabled, permitted and running
   mode <display> auto|ddc|apple|software   choose how a display is controlled
   reset-gamma                         undo software dimming
@@ -109,6 +110,10 @@ case "status", "list", "version", "reset-gamma":
     request = IPCRequest(cmd: command)
 case "keys":
     request = IPCRequest(cmd: "keys.status")
+case "nudge":
+    guard rest.count == 3 else { fail("Usage: displaycontrol nudge <display> <brightness|contrast|volume> <up|down>", ExitCode.usage) }
+    var a = displayArgs(rest[0]); a["property"] = .string(rest[1]); a["direction"] = .string(rest[2])
+    request = IPCRequest(cmd: "nudge", args: a)
 case "caps":
     request = IPCRequest(cmd: "caps", args: displayArgs(rest.first))
 case "vcp-set":

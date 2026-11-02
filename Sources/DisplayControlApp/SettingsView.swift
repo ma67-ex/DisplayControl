@@ -33,9 +33,11 @@ struct SettingsView: View {
                 case .about: AboutTab(model: model)
                 }
             }
+            .scrollContentBackground(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 640, height: 520)
+        .background(AppBackdrop(stars: model.settings.animatedStars))
         .task { await model.reload() }
     }
 }
@@ -48,6 +50,15 @@ struct GeneralTab: View {
 
     var body: some View {
         Form {
+            Section("Appearance") {
+                Picker("Appearance", selection: Binding(get: { model.settings.appearance }, set: { v in model.updateAppSettings { $0.appearance = v } })) {
+                    ForEach(AppearanceMode.allCases, id: \.self) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Toggle("Moving stars in the background", isOn: Binding(get: { model.settings.animatedStars }, set: { v in model.updateAppSettings { $0.animatedStars = v } }))
+                Text("Night is a dark theme for evenings. The stars drift only while a window is open, and stop if Reduce Motion is on.").font(.caption).foregroundStyle(.secondary)
+            }
             Toggle("Open DisplayControl at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { model.setLaunchAtLogin($0) }
             Toggle("Keyboard shortcuts control every display, not just the one under the pointer",
@@ -637,5 +648,6 @@ struct OnboardingView: View {
             }
         }
         .padding(24).frame(width: 480, height: 340)
+        .background(AppBackdrop(stars: model.settings.animatedStars))
     }
 }

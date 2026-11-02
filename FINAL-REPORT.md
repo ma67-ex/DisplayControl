@@ -61,6 +61,7 @@ Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/buil
 | F67 | Privacy | Done | No networking code anywhere. |
 | F68 | Accessibility | Partial | Labels on sliders and icon buttons, keyboard-reachable controls. Not audited with VoiceOver. |
 | Boost | Extra brightness (100 to 200 percent) by scaling the RGB gains | **Hardware** | Added after the first release. On the Acer: 120% gave gains 60/56/50 and 100% restored 50/47/42 and preset 5 exactly. 8 tests. Whether 200% looks right (clipping) is for the user to judge. |
+| Design | Redesigned window, Light / Night / system appearance, brightness glow | Tested (logic), snapshot-checked (look) | Glow math and appearance setting have 7 tests. The look was checked in rendered images of both modes; the user has not yet seen it live. |
 | Tooling | Hardware self-test, probe, diagnostics | **Hardware** | `selftest` and `probe` ran on this Mac. `selftest --mock` runs without hardware. |
 
 Not in v1 by design: Samsung and LG Wi-Fi control, HDR and Night Shift toggles, extra-bright modes, Windows. Hardware DDC on Intel Macs is also not built (no `IOFBCopyI2CInterface` path), so Intel Macs get Apple-display control and software dimming only.

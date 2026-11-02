@@ -528,3 +528,47 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
         #expect(ok.ok)
     }
 }
+
+@Suite struct StepSizeTests {
+    @Test func eachKeyPressMovesByTheStepSizeOnBothDisplays() async throws {
+        for step in [1, 2, 5, 10] {
+            let (c, sys) = makeCenter()
+            await c.reload()
+            for q in ["built", "dell"] { try await c.set(query: q, .brightness, to: 40) }
+            let snaps = await c.snapshots()
+            for sn in snaps { await c.updateSettings(key: sn.key) { $0.stepSize = step } }
+            let router = CommandRouter(center: c)
+            for q in ["built", "dell"] {
+                let up = await router.handle(IPCRequest(cmd: "nudge", args: ["display": .string(q), "property": .string("brightness"), "direction": .string("up")]))
+                guard case .object(let o)? = up.data else { Issue.record("no data"); continue }
+                #expect(o["value"]?.intValue == 40 + step, "\(q) step \(step)")
+                #expect(o["step"]?.intValue == step)
+            }
+            await c.settle()
+            #expect(sys.builtIn.brightness == 40 + step)
+            #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == UInt16(40 + step))
+        }
+    }
+
+    @Test func downAndClampingRespectTheStep() async throws {
+        let (c, _) = makeCenter()
+        await c.reload()
+        try await c.set(query: "dell", .brightness, to: 4)
+        let d = try await c.resolve("dell")
+        await c.updateSettings(key: await d.key) { $0.stepSize = 10 }
+        let router = CommandRouter(center: c)
+        let down = await router.handle(IPCRequest(cmd: "nudge", args: ["display": .string("dell"), "property": .string("brightness"), "direction": .string("down")]))
+        if case .object(let o)? = down.data { #expect(o["value"]?.intValue == 0) }
+        let bad = await router.handle(IPCRequest(cmd: "nudge", args: ["display": .string("dell"), "property": .string("input"), "direction": .string("up")]))
+        #expect(!bad.ok)
+    }
+
+    @Test func stepSizeSurvivesReload() async throws {
+        let (c, _) = makeCenter()
+        await c.reload()
+        let key = try await c.resolve("dell").key
+        await c.updateSettings(key: key) { $0.stepSize = 2 }
+        await c.reload()
+        #expect((await c.snapshots())[1].settings.stepSize == 2)
+    }
+}
