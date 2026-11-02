@@ -10,7 +10,7 @@ import os, html, datetime, pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 SITE_URL = os.environ.get("SITE_URL", "https://displaycontrol.example").rstrip("/")
-REPO_URL = os.environ.get("REPO_URL", "https://github.com/OWNER/DisplayControl").rstrip("/")
+REPO_URL = os.environ.get("REPO_URL", "https://github.com/ma67-ex/DisplayControl").rstrip("/")
 TODAY = datetime.date.today().isoformat()
 
 LOGO_OLD = ('<svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/>'

@@ -3,10 +3,10 @@ cask "displaycontrol" do
   version "1.0.0"
   sha256 "REPLACE_WITH_SHA256_OF_DisplayControl.zip"
 
-  url "https://github.com/OWNER/DisplayControl/releases/download/v#{version}/DisplayControl.zip"
+  url "https://github.com/ma67-ex/DisplayControl/releases/download/v#{version}/DisplayControl.zip"
   name "DisplayControl"
   desc "Menu bar app to control external monitor brightness, contrast, volume and input"
-  homepage "https://github.com/OWNER/DisplayControl"
+  homepage "https://github.com/ma67-ex/DisplayControl"
 
   depends_on macos: ">= :ventura"
 

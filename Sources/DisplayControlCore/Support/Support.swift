@@ -62,14 +62,18 @@ public enum AtomicJSON {
         let fm = FileManager.default
         let tmp = url.appendingPathExtension("tmp")
         try data.write(to: tmp, options: .atomic)
+        // Settings, presets and schedules are private to this user: owner read and write only.
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
         if fm.fileExists(atPath: url.path) {
             let bak = url.appendingPathExtension("bak")
             try? fm.removeItem(at: bak)
             try? fm.copyItem(at: url, to: bak)
+            try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: bak.path)
             _ = try fm.replaceItemAt(url, withItemAt: tmp)
         } else {
             try fm.moveItem(at: tmp, to: url)
         }
+        try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
     /// Reads `url`; if it is missing or corrupt, falls back to the `.bak` copy.

@@ -146,7 +146,7 @@ struct EmptyState: View {
 /// One place for outbound links. Replace `site` and `repository` once the project has a home.
 enum Links {
     static let site = "https://displaycontrol.example"
-    static let repository = "https://github.com/OWNER/DisplayControl"
+    static let repository = "https://github.com/ma67-ex/DisplayControl"
     static let troubleshooting = URL(string: site + "/docs/troubleshooting.html")!
     static let releases = URL(string: repository + "/releases")!
 }
