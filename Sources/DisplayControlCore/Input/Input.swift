@@ -6,7 +6,7 @@ import CoreLocation
 // MARK: - Settings
 
 public enum HotkeyAction: String, Codable, CaseIterable, Sendable {
-    case brightnessUp, brightnessDown, contrastUp, contrastDown, volumeUp, volumeDown, mute, cycleInput, toggleSync
+    case brightnessUp, brightnessDown, contrastUp, contrastDown, volumeUp, volumeDown, mute, cycleInput, toggleSync, panic
 
     public var title: String {
         switch self {
@@ -19,6 +19,7 @@ public enum HotkeyAction: String, Codable, CaseIterable, Sendable {
         case .mute: return "Mute"
         case .cycleInput: return "Cycle input source"
         case .toggleSync: return "Toggle sync"
+        case .panic: return "Reset everything (panic)"
         }
     }
 }
@@ -39,6 +40,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var appearance: AppearanceMode = .system
     /// Drifting, twinkling stars behind the windows. Drawn only while a window is visible.
     public var animatedStars = true
+    /// Show the brightness next to the menu bar icon, and a small bar on screen when keys change a value.
+    public var showMenuBarValue = false
+    public var showHUD = true
     public var mediaKeysEnabled = false
     public var controlAllDisplays = false
     public var hotkeys: [HotkeyAction: HotKeySpec] = [:]
@@ -51,6 +55,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? .system
         animatedStars = try c.decodeIfPresent(Bool.self, forKey: .animatedStars) ?? true
+        showMenuBarValue = try c.decodeIfPresent(Bool.self, forKey: .showMenuBarValue) ?? false
+        showHUD = try c.decodeIfPresent(Bool.self, forKey: .showHUD) ?? true
         mediaKeysEnabled = try c.decodeIfPresent(Bool.self, forKey: .mediaKeysEnabled) ?? false
         controlAllDisplays = try c.decodeIfPresent(Bool.self, forKey: .controlAllDisplays) ?? false
         hotkeys = try c.decodeIfPresent([HotkeyAction: HotKeySpec].self, forKey: .hotkeys) ?? [:]
@@ -253,6 +259,7 @@ public struct KeyboardController: Sendable {
     }
 
     public func perform(_ action: HotkeyAction, pointer: CGPoint) async {
+        if action == .panic { _ = await center.panicReset(); return }
         let list = await targets(pointer: pointer)
         for d in list {
             switch action {
@@ -270,6 +277,7 @@ public struct KeyboardController: Sendable {
                 let cur = await d.refresh(.input) ?? all[0]
                 let next = all[((all.firstIndex(of: cur) ?? -1) + 1) % all.count]
                 try? await center.set(d, .input, to: next, origin: .keyboard)
+            case .panic: break                                               // handled above, once, not per display
             case .toggleSync:
                 let s = await center.sync
                 if s.enabled { await center.setSync(enabled: false, hostKey: nil) }

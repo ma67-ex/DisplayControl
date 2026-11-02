@@ -4,7 +4,7 @@ Date: 2026-11-02. Built from `DisplayControl-BUILD-SPEC.md` on an Apple Silicon 
 
 ## Summary
 
-A working macOS menu bar app, command line tool, MCP server and static website, about 6,400 lines of Swift plus the site generator. 72 automated tests pass. Real DDC/CI control was verified on one external monitor (Acer ED270R S3 over HDMI). Media keys and the real menu bar popover were later confirmed by the user. Global hotkeys, live system-event triggers and URL scheme launch from LaunchServices remain implemented but not exercised, and are listed as such below.
+A working macOS menu bar app, command line tool, MCP server and static website, about 6,400 lines of Swift plus the site generator. 106 automated tests pass. Real DDC/CI control was verified on one external monitor (Acer ED270R S3 over HDMI). Media keys and the real menu bar popover were later confirmed by the user. Global hotkeys, live system-event triggers and URL scheme launch from LaunchServices remain implemented but not exercised, and are listed as such below.
 
 Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/build-app.sh` for `dist/DisplayControl.app` and the zip.
 
@@ -62,6 +62,11 @@ Run `./Scripts/check.sh` to rebuild and re-run everything, and `./Packaging/buil
 | F68 | Accessibility | Partial | Labels on sliders and icon buttons, keyboard-reachable controls. Not audited with VoiceOver. |
 | Boost | Extra brightness (100 to 200 percent) by scaling the RGB gains | **Hardware** | Added after the first release. On the Acer: 120% gave gains 60/56/50 and 100% restored 50/47/42 and preset 5 exactly. 8 tests. Whether 200% looks right (clipping) is for the user to judge. |
 | Design | Redesigned window, Light / Night / system appearance, brightness glow | Tested (logic), snapshot-checked (look) | Glow math and appearance setting have 7 tests. The look was checked in rendered images of both modes; the user has not yet seen it live. |
+| Extras | Dark Mode, Night Shift (+ warmth), True Tone toggles, also in presets | **Hardware** | Each switched and restored on this MacBook through the CLI and read back. Private CoreBrightness and SkyLight interfaces, loaded at run time. |
+| Extras | HDR switch | Compiled only | Shown only where macOS reports support. This Mac's built-in panel reported none, and no HDR monitor was available. |
+| Extras | Color profile picker (per display, in presets) | **Hardware** | Built-in display switched to sRGB and reset to its own profile, read back each time. Public ColorSync API. |
+| Comfort | Preset fade, brightness floor and ceiling, reset-everything (button, command, shortcut) | Tested | 7 tests, including that a fade ends on the exact values and that panic undoes boost and a color profile. Panic and the on-screen bar path were run on the built-in display; the Acer was unplugged at the time, so boost-then-panic was not repeated on real hardware. |
+| Comfort | On-screen bar when keys change a value, menu bar number | Snapshot-checked | Bar rendered in both modes. Not seen live: it needs a real key press. |
 | Tooling | Hardware self-test, probe, diagnostics | **Hardware** | `selftest` and `probe` ran on this Mac. `selftest --mock` runs without hardware. |
 
 Not in v1 by design: Samsung and LG Wi-Fi control, HDR and Night Shift toggles, extra-bright modes, Windows. Hardware DDC on Intel Macs is also not built (no `IOFBCopyI2CInterface` path), so Intel Macs get Apple-display control and software dimming only.
@@ -130,3 +135,17 @@ Original code and copy. DisplayBuddy's application binary was never downloaded o
 ## Not committed
 
 Nothing was committed. This folder sits inside a larger repository that has an unrelated modified file (`learnings/INDEX.md`), and the chosen branch was the current one. Stage only paths under `projects/DisplayManager/` when committing.
+
+
+## Requested but not built (reasons)
+
+| Item | Why not |
+|---|---|
+| Siri, Spotlight, Shortcuts actions, desktop widgets, Control Center controls | Need Xcode's App Intents and WidgetKit tooling. This Mac has only the Command Line Tools. |
+| Samsung Tizen and LG webOS Wi-Fi control | No such monitor to test against. Untested network protocol code would be guesswork. |
+| Windows version, DDC on Intel Macs | Need other hardware. |
+| Brightness past the panel maximum on MacBook Pro and Studio Display XDR | Works by overdriving the panel with HDR content. Not attempted: no way to measure it here, and a mistake can run the panel hot. |
+| macOS Display Presets and Reference Modes | Private CoreDisplay interface that is not present on this macOS (the library did not load). |
+| Languages | English only. Needs a bundled resources setup and real translations. |
+| Built-in update check, compatibility checker fed by user data | Both need the app to use the network, which it deliberately never does. |
+| Notarization, SetApp, licenses, volume deals for business | Need a Developer ID and accounts. The project is free and open source. |

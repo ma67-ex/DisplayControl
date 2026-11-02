@@ -14,13 +14,18 @@ Commands:
                 [--input NAME|CODE] [--rotation 0|90|180|270] [--power on|off]
   set --all --brightness N            apply to every display
   preset list
-  preset activate <name> [--delay SECONDS]
+  preset activate <name> [--delay SECONDS] [--fade SECONDS]
+  panic                               undo dimming, extra brightness and a switched color profile
   schedule list | enable <id> | disable <id>
   sync [enable <display> | disable]
   caps <display>                      list the controls a DDC monitor reports
   vcp <display> <code>                read one raw DDC control (code in hex like DC, or 0xDC)
   vcp-set <display> <code> <value>    write one raw DDC control the monitor advertises, and read it back
   nudge <display> <brightness|contrast|volume> <up|down>   one key press worth of change (uses the step size)
+  extras                              show Dark Mode, Night Shift, True Tone and HDR
+  extra <darkmode|nightshift|truetone|hdr> <on|off> [display]   switch one; nightshift-strength <0-100>
+  profiles <display>                  list color profiles and the current one
+  profile <display> <name|reset>      switch a display's color profile
   keys                                show whether the keyboard keys are enabled, permitted and running
   mode <display> auto|ddc|apple|software   choose how a display is controlled
   reset-gamma                         undo software dimming
@@ -46,7 +51,7 @@ func fail(_ message: String, _ code: Int32) -> Never {
 
 var args = Array(CommandLine.arguments.dropFirst())
 var forceJSON = false, forceHuman = false, launch = false, useMock = false, all = false
-var index: Int?, uuid: String?, delay: Int?
+var index: Int?, uuid: String?, delay: Int?, fade: Int?
 var props: [String: JSONValue] = [:]
 var wantedProps: [String] = []
 var positional: [String] = []
@@ -69,6 +74,7 @@ while i < args.count {
     case "--help", "-h": print(usageText); exit(0)
     case "--index": index = Int(takeValue(&i, a)) ?? { fail("--index needs a number", ExitCode.usage) }()
     case "--uuid": uuid = takeValue(&i, a)
+    case "--fade": fade = Int(takeValue(&i, a)) ?? { fail("--fade needs a number of seconds", ExitCode.usage) }()
     case "--delay": delay = Int(takeValue(&i, a)) ?? { fail("--delay needs a number of seconds", ExitCode.usage) }()
     case "--brightness", "--contrast", "--volume", "--rotation", "--boost":
         let key = String(a.dropFirst(2))
@@ -106,10 +112,23 @@ func displayArgs(_ name: String?) -> [String: JSONValue] {
 
 var request: IPCRequest
 switch command {
-case "status", "list", "version", "reset-gamma":
+case "status", "list", "version", "reset-gamma", "panic":
     request = IPCRequest(cmd: command)
 case "keys":
     request = IPCRequest(cmd: "keys.status")
+case "profiles":
+    request = IPCRequest(cmd: "profiles.get", args: displayArgs(rest.first))
+case "profile":
+    guard rest.count >= 2 else { fail("Usage: displaycontrol profile <display> <name|reset>", ExitCode.usage) }
+    var a = displayArgs(rest[0]); a["profile"] = .string(rest.dropFirst().joined(separator: " "))
+    request = IPCRequest(cmd: "profile.set", args: a)
+case "extras":
+    request = IPCRequest(cmd: "extras.get")
+case "extra":
+    guard rest.count >= 2 else { fail("Usage: displaycontrol extra <darkmode|nightshift|truetone|hdr|nightshift-strength> <on|off|0-100> [display]", ExitCode.usage) }
+    var a = displayArgs(rest.count > 2 ? rest[2] : nil); a["name"] = .string(rest[0]); a["value"] = .string(rest[1])
+    if let n = Int(rest[1]) { a["value"] = .int(n) }
+    request = IPCRequest(cmd: "extras.set", args: a)
 case "nudge":
     guard rest.count == 3 else { fail("Usage: displaycontrol nudge <display> <brightness|contrast|volume> <up|down>", ExitCode.usage) }
     var a = displayArgs(rest[0]); a["property"] = .string(rest[1]); a["direction"] = .string(rest[2])
@@ -146,6 +165,7 @@ case "preset":
         guard rest.count >= 2 else { fail("Usage: displaycontrol preset activate <name> [--delay SECONDS]", ExitCode.usage) }
         var a: [String: JSONValue] = ["name": .string(rest.dropFirst().joined(separator: " "))]
         if let delay { a["delay"] = .int(delay) }
+        if let fade { a["fade"] = .int(fade) }
         request = IPCRequest(cmd: "preset.activate", args: a)
     default: fail("Usage: displaycontrol preset list | activate <name>", ExitCode.usage)
     }
@@ -224,7 +244,7 @@ if command == "selftest" && useMock {
         var timing = DDCTiming(); timing.minGap = .milliseconds(10); timing.maxGap = .milliseconds(20); timing.readDelay = .milliseconds(5)
         let center = DisplayCenter(system: DemoDisplaySystem(), presets: PresetStore(url: tmp.appendingPathComponent("p.json")),
                                    schedules: ScheduleStore(url: tmp.appendingPathComponent("s.json")),
-                                   settingsURL: tmp.appendingPathComponent("d.json"), timing: timing)
+                                   settingsURL: tmp.appendingPathComponent("d.json"), timing: timing, extras: FakeSystemExtras())
         await center.reload()
         var a = displayArgs(rest.first ?? "Demo Monitor")
         a["display"] = .string(rest.first ?? "Demo Monitor")

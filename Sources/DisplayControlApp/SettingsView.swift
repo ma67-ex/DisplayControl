@@ -75,6 +75,8 @@ struct GeneralTab: View {
                 Toggle("Moving stars in the background", isOn: Binding(get: { model.settings.animatedStars }, set: { v in model.updateAppSettings { $0.animatedStars = v } }))
                 Text("Night is a dark theme for evenings. The stars drift only while a window is open, and stop if Reduce Motion is on.").font(.caption).foregroundStyle(.secondary)
             }
+            Toggle("Show the brightness next to the menu bar icon", isOn: Binding(get: { model.settings.showMenuBarValue }, set: { v in model.updateAppSettings { $0.showMenuBarValue = v } }))
+            Toggle("Show a small bar on screen when keys change a value", isOn: Binding(get: { model.settings.showHUD }, set: { v in model.updateAppSettings { $0.showHUD = v } }))
             Toggle("Open DisplayControl at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { model.setLaunchAtLogin($0) }
             Toggle("Keyboard shortcuts control every display, not just the one under the pointer",
@@ -113,6 +115,10 @@ struct DisplaysTab: View {
                     Picker("Control mode", selection: Binding(get: { d.settings.preferredMode }, set: { model.setMode(d.key, $0) })) {
                         Text("Automatic").tag(ControlMode?.none)
                         ForEach(ControlMode.allCases, id: \.self) { Text($0.title).tag(ControlMode?.some($0)) }
+                    }
+                    if d.supported.contains(.brightness) {
+                        Stepper("Lowest brightness: \(d.settings.brightnessFloor)%", value: Binding(get: { d.settings.brightnessFloor }, set: { v in model.updateSettings(d.key) { $0.brightnessFloor = min(v, $0.brightnessCeiling) } }), in: 0...90, step: 5)
+                        Stepper("Highest brightness: \(d.settings.brightnessCeiling)%", value: Binding(get: { d.settings.brightnessCeiling }, set: { v in model.updateSettings(d.key) { $0.brightnessCeiling = max(v, $0.brightnessFloor) } }), in: 10...100, step: 5)
                     }
                     if d.supported.contains(.volume) {
                         Stepper("Volume cap: \(d.settings.volumeCap)%", value: Binding(get: { d.settings.volumeCap }, set: { v in model.updateSettings(d.key) { $0.volumeCap = v } }), in: 10...100, step: 5)
@@ -192,6 +198,14 @@ struct PresetEditor: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(preset.displays.indices, id: \.self) { i in displayEditor(i) }
+                    GroupBox("System") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            tri("Dark Mode", Binding(get: { preset.extras?.darkMode }, set: { setExtra { $0.darkMode = $1 }($0) }))
+                            tri("Night Shift", Binding(get: { preset.extras?.nightShift }, set: { setExtra { $0.nightShift = $1 }($0) }))
+                            tri("True Tone", Binding(get: { preset.extras?.trueTone }, set: { setExtra { $0.trueTone = $1 }($0) }))
+                            Text("Leave a switch at “Unchanged” and the preset will not touch it.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                     GroupBox("Sync") {
                         Toggle("Include sync state", isOn: Binding(get: { preset.sync != nil }, set: { preset.sync = $0 ? model.sync : nil }))
                         if preset.sync != nil {
@@ -200,6 +214,7 @@ struct PresetEditor: View {
                     }
                     GroupBox("Options") {
                         Stepper("Delay before applying: \(Int(preset.delaySeconds ?? 0)) s", value: Binding(get: { preset.delaySeconds ?? 0 }, set: { preset.delaySeconds = $0 > 0 ? $0 : nil }), in: 0...30)
+                        Stepper(preset.fadeSeconds == nil ? "Fade: off (jump straight there)" : "Fade over \(Int(preset.fadeSeconds ?? 0)) s", value: Binding(get: { preset.fadeSeconds ?? 0 }, set: { preset.fadeSeconds = $0 > 0 ? $0 : nil }), in: 0...60)
                         HStack { Text("Shortcut"); ShortcutRecorder(spec: $preset.hotkey) }
                     }
                 }
@@ -227,6 +242,17 @@ struct PresetEditor: View {
                         }.labelsHidden().fixedSize()
                     }
                 }
+                Toggle(preset.displays[i].colorProfile.map { $0.isEmpty ? "Color profile: the display's own" : "Color profile: \(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent)" } ?? "Color profile (not included)", isOn: Binding(
+                    get: { preset.displays[i].colorProfile != nil },
+                    set: { on in
+                        if on {
+                            Task {
+                                let key = preset.displays[i].identityKey
+                                let cur = try? await model.center.colorProfiles(key: key).current
+                                preset.displays[i].colorProfile = cur.map { $0.isFactory ? "" : $0.path } ?? ""
+                            }
+                        } else { preset.displays[i].colorProfile = nil }
+                    }))
                 Toggle("Power on", isOn: Binding(get: { preset.displays[i].power ?? false }, set: { preset.displays[i].power = $0 ? true : nil }))
                 HStack {
                     Toggle("Rotation", isOn: Binding(get: { preset.displays[i].rotation != nil }, set: { preset.displays[i].rotation = $0 ? 0 : nil }))
@@ -248,6 +274,25 @@ struct PresetEditor: View {
                     set: { preset.displays[i].arrangement = $0 ? (preset.displays[i].arrangement ?? ArrangementSpec(x: 0, y: 0)) : nil }))
                 Button("Remove this display") { preset.displays.remove(at: i) }.buttonStyle(.borderless).font(.caption)
             }
+        }
+    }
+
+    /// Unchanged, On or Off for one system switch.
+    func tri(_ title: String, _ value: Binding<Bool?>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Picker("", selection: value) {
+                Text("Unchanged").tag(Bool?.none); Text("On").tag(Bool?.some(true)); Text("Off").tag(Bool?.some(false))
+            }.pickerStyle(.segmented).labelsHidden().frame(width: 230)
+        }
+    }
+
+    func setExtra(_ apply: @escaping (inout ExtrasPreset, Bool?) -> Void) -> (Bool?) -> Void {
+        { v in
+            var e = preset.extras ?? ExtrasPreset()
+            apply(&e, v)
+            preset.extras = e.isEmpty ? nil : e
         }
     }
 

@@ -77,7 +77,7 @@ public struct CommandRouter: Sendable {
 
         case "preset.activate":
             guard let name = a["name"]?.stringValue else { throw CenterError.invalidValue("A preset name is required") }
-            let results = try await center.activatePreset(name, delay: a["delay"]?.intValue.map(Double.init))
+            let results = try await center.activatePreset(name, delay: a["delay"]?.intValue.map(Double.init), fade: a["fade"]?.intValue.map(Double.init))
             return presetResponse(results)
 
         case "schedule.list":
@@ -169,6 +169,49 @@ public struct CommandRouter: Sendable {
             try await center.adjust(d, p, steps: dir)
             await center.settle()
             return .success(.object(["value": .int(await d.refresh(p) ?? -1), "step": .int(await d.settings.stepSize)]))
+
+        case "extras.get":
+            return .success(.from(await center.extras.state()))
+
+        case "extras.set":
+            guard let name = a["name"]?.stringValue?.lowercased() else { throw CenterError.invalidValue("name is required") }
+            let ex = center.extras
+            let on = a["value"]?.boolValue
+            let ok: Bool
+            switch name {
+            case "darkmode": guard let on else { throw CenterError.invalidValue("value must be on or off") }; ok = await ex.setDarkMode(on)
+            case "nightshift": guard let on else { throw CenterError.invalidValue("value must be on or off") }; ok = await ex.setNightShift(on)
+            case "truetone": guard let on else { throw CenterError.invalidValue("value must be on or off") }; ok = await ex.setTrueTone(on)
+            case "nightshift-strength":
+                guard let n = a["value"]?.intValue, (0...100).contains(n) else { throw CenterError.invalidValue("strength must be 0 to 100") }
+                ok = await ex.setNightShiftStrength(n)
+            case "hdr":
+                guard let on else { throw CenterError.invalidValue("value must be on or off") }
+                let d = try await display(a)
+                ok = await ex.setHDR(displayID: await d.info.id, on)
+            default: throw CenterError.invalidValue("Unknown setting \"\(name)\". Use darkmode, nightshift, nightshift-strength, truetone or hdr")
+            }
+            if !ok { return .failure("\(name) is not available on this Mac or display", code: ExitCode.refused) }
+            return .success(.from(await ex.state()))
+
+        case "profiles.get":
+            let d = try await display(a)
+            return .success(.from(try await center.colorProfiles(key: await d.key)))
+
+        case "profile.set":
+            let d = try await display(a)
+            let state = try await center.colorProfiles(key: await d.key)
+            let wanted = a["profile"]?.stringValue ?? ""
+            let target: ColorProfileInfo?
+            if ["reset", "default", "factory", "own"].contains(wanted.lowercased()) { target = nil }
+            else if let m = state.available.first(where: { $0.name.lowercased() == wanted.lowercased() || $0.path == wanted })
+                        ?? { let c = state.available.filter { $0.name.lowercased().contains(wanted.lowercased()) }; return c.count == 1 ? c[0] : nil }() { target = m }
+            else { throw CenterError.invalidValue("No profile named \"\(wanted)\". Run displaycontrol profiles to list them") }
+            try await center.applyColorProfile(key: await d.key, path: target?.isFactory == true ? nil : target?.path)
+            return .success(.from(try await center.colorProfiles(key: await d.key)))
+
+        case "panic":
+            return .success(.from(await center.panicReset()))
 
         case "keys.status":
             return .success(await keyStatus?() ?? .null)

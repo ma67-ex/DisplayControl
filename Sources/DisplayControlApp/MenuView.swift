@@ -35,6 +35,7 @@ struct MenuView: View {
                     .frame(height: min(max(cardsHeight, 80), 540))
                     .onPreferenceChange(ContentHeightKey.self) { cardsHeight = $0 }
             }
+            if !model.displays.isEmpty { ExtrasCard(model: model) }
             if !model.presets.isEmpty { presetRow }
             if let s = model.lastPresetSummary {
                 Text(s).font(.caption).foregroundStyle(.secondary)
@@ -92,10 +93,10 @@ struct MenuView: View {
 
     private var footer: some View {
         HStack {
-            Button("Reset dimming") {
-                Task { _ = await CommandRouter(center: model.center).handle(IPCRequest(cmd: "reset-gamma")) }
+            Button("Reset everything") {
+                Task { let done = await model.center.panicReset(); model.lastPresetSummary = "Reset: " + done.joined(separator: ", "); await model.reload() }
             }
-            .help("Undo software dimming on every display")
+            .help("Clears software dimming, extra brightness and a switched color profile on every display")
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
@@ -104,6 +105,73 @@ struct MenuView: View {
         .font(.system(size: 12))
         .foregroundStyle(.secondary)
         .padding(.top, 2)
+    }
+}
+
+/// Dark Mode, Night Shift and True Tone: system-wide switches that belong next to brightness.
+struct ExtrasCard: View {
+    @ObservedObject var model: AppModel
+    @State private var open = false
+
+    private var tiles: [(title: String, symbol: String, on: Bool, tint: Color, action: (Bool) -> Void)] {
+        var t: [(String, String, Bool, Color, (Bool) -> Void)] = []
+        if let d = model.extras.darkMode { t.append(("Dark", "moon.fill", d, Theme.cool, { model.setDarkMode($0) })) }
+        if let n = model.extras.nightShift { t.append(("Night Shift", "sun.haze.fill", n, Theme.amber, { model.setNightShift($0) })) }
+        if model.extras.trueToneSupported, let tt = model.extras.trueTone { t.append(("True Tone", "circle.lefthalf.filled.righthalf.striped.horizontal", tt, Theme.mint, { model.setTrueTone($0) })) }
+        return t
+    }
+
+    var body: some View {
+        if !tiles.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(tiles, id: \.title) { tile in
+                        ExtraTile(title: tile.title, symbol: tile.symbol, on: tile.on, tint: tile.tint) { tile.action(!tile.on) }
+                    }
+                }
+                if model.extras.nightShift == true, let strength = model.extras.nightShiftStrength {
+                    HStack(spacing: 8) {
+                        Image(systemName: "thermometer.medium").font(.system(size: 11)).frame(width: 16).foregroundStyle(Theme.amber).accessibilityHidden(true)
+                        GlowSlider(value: Binding(get: { strength }, set: { model.setNightShiftStrength($0) }),
+                                   range: 0...100, tint: Theme.amber, glows: true, label: "Night Shift warmth")
+                        Text("\(strength)").font(.system(size: 12, weight: .medium, design: .rounded).monospacedDigit()).foregroundStyle(.secondary)
+                            .frame(width: 30, alignment: .trailing)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(Theme.settle, value: model.extras.nightShift)
+        }
+    }
+}
+
+struct ExtraTile: View {
+    let title: String
+    let symbol: String
+    let on: Bool
+    let tint: Color
+    let action: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(on ? tint : Color.secondary)
+                    .shadow(color: on ? tint.opacity(0.8) : .clear, radius: 5)
+                Text(title).font(.system(size: 10.5, weight: .medium, design: .rounded)).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? tint.opacity(0.18) : (hover ? Theme.chip(scheme) : Theme.card(scheme))))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(on ? tint.opacity(0.55) : Theme.hairline(scheme), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .animation(Theme.settle, value: on)
+        .accessibilityLabel(title)
+        .accessibilityValue(on ? "on" : "off")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -261,6 +329,7 @@ struct ExpandedControls: View {
     let display: DisplaySnapshot
     @State private var resolutions: [ResolutionSpec] = []
     @State private var currentResolution: ResolutionSpec?
+    @State private var profiles = ColorProfileState()
     @Environment(\.colorScheme) private var scheme
 
     private func row<Trailing: View>(_ title: String, _ symbol: String, @ViewBuilder trailing: () -> Trailing) -> some View {
@@ -274,6 +343,11 @@ struct ExpandedControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if display.supported.contains(.boost) { boost }
+            if let hdr = model.extras.hdr[String(display.id)] {
+                row("HDR", "sparkles.tv") {
+                    Toggle("", isOn: Binding(get: { hdr }, set: { model.setHDR(display: display.id, $0) })).labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                }
+            }
             if display.supported.contains(.input) {
                 row("Input", "cable.connector") {
                     Menu("Switch") {
@@ -306,6 +380,18 @@ struct ExpandedControls: View {
                 row("Resolution", "rectangle.expand.vertical") {
                     Menu(currentResolution.map(format) ?? "Choose") {
                         ForEach(resolutions.prefix(24), id: \.self) { r in Button(format(r)) { choose(r) } }
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                }
+            }
+            if profiles.available.count > 1 {
+                row("Color profile", "paintpalette") {
+                    Menu(profiles.current?.name ?? "Choose") {
+                        ForEach(profiles.available, id: \.path) { p in
+                            Button { chooseProfile(p) } label: {
+                                Label(p.isFactory ? "\(p.name) (own)" : p.name, systemImage: p.path == profiles.current?.path ? "checkmark" : "circle.dotted")
+                            }
+                        }
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
@@ -349,6 +435,7 @@ struct ExpandedControls: View {
         .task {
             let r = await model.center.resolutions(key: display.key)
             resolutions = r.all; currentResolution = r.current
+            profiles = (try? await model.center.colorProfiles(key: display.key)) ?? ColorProfileState()
         }
     }
 
@@ -374,6 +461,15 @@ struct ExpandedControls: View {
             guard let d = try? await model.center.resolve(display.key) else { return }
             do { try await model.center.set(d, p, to: v) } catch { model.banner = String(describing: error) }
             await model.reload()
+        }
+    }
+
+    private func chooseProfile(_ p: ColorProfileInfo) {
+        Task {
+            do {
+                try await model.center.applyColorProfile(key: display.key, path: p.isFactory ? nil : p.path)
+                profiles = try await model.center.colorProfiles(key: display.key)
+            } catch { model.banner = String(describing: error) }
         }
     }
 

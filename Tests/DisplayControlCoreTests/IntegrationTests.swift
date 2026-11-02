@@ -55,7 +55,7 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let c = DisplayCenter(system: sys, presets: PresetStore(url: dir.appendingPathComponent("p.json")),
                           schedules: ScheduleStore(url: dir.appendingPathComponent("s.json")),
-                          settingsURL: dir.appendingPathComponent("d.json"), timing: .fast)
+                          settingsURL: dir.appendingPathComponent("d.json"), timing: .fast, extras: FakeSystemExtras(hdrDisplays: [2]))
     return (c, sys)
 }
 
@@ -510,7 +510,7 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
         let url = dir.appendingPathComponent("d.json")
         try AtomicJSON.write([key: saved], to: url)
         let c2 = DisplayCenter(system: sys, presets: PresetStore(url: dir.appendingPathComponent("p.json")),
-                               schedules: ScheduleStore(url: dir.appendingPathComponent("s.json")), settingsURL: url, timing: .fast)
+                               schedules: ScheduleStore(url: dir.appendingPathComponent("s.json")), settingsURL: url, timing: .fast, extras: FakeSystemExtras())
         await c2.reload()
         let d2 = try await c2.resolve(key)
         #expect(await d2.refresh(.boost) == 160)                       // still knows it is boosted
@@ -570,5 +570,244 @@ func makeCenter(_ sys: FakeSystem = FakeSystem()) -> (DisplayCenter, FakeSystem)
         await c.updateSettings(key: key) { $0.stepSize = 2 }
         await c.reload()
         #expect((await c.snapshots())[1].settings.stepSize == 2)
+    }
+}
+
+
+@Suite struct ExtrasTests {
+    @Test func readsAndSetsEachSwitch() async throws {
+        let (c, _) = makeCenter()
+        let r = CommandRouter(center: c)
+        let get = await r.handle(IPCRequest(cmd: "extras.get"))
+        let st = try JSONDecoder().decode(ExtrasState.self, from: JSONEncoder().encode(get.data))
+        #expect(st.darkMode == false && st.nightShift == false && st.trueToneSupported)
+
+        for (name, value) in [("darkmode", "on"), ("nightshift", "on"), ("truetone", "off")] {
+            let resp = await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string(name), "value": .string(value)]))
+            #expect(resp.ok, "\(name)")
+        }
+        let strength = await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("nightshift-strength"), "value": .int(80)]))
+        #expect(strength.ok)
+        let after = try JSONDecoder().decode(ExtrasState.self, from: JSONEncoder().encode(await r.handle(IPCRequest(cmd: "extras.get")).data))
+        #expect(after.darkMode == true && after.nightShift == true && after.trueTone == false && after.nightShiftStrength == 80)
+    }
+
+    @Test func badInputIsRejected() async {
+        let (c, _) = makeCenter()
+        let r = CommandRouter(center: c)
+        #expect((await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("nightshift-strength"), "value": .int(300)]))).code == ExitCode.usage)
+        #expect((await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("darkmode"), "value": .string("maybe")]))).code == ExitCode.usage)
+        #expect((await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("flux"), "value": .string("on")]))).code == ExitCode.usage)
+    }
+
+    @Test func hdrOnlyOnDisplaysThatOfferIt() async throws {
+        let (c, _) = makeCenter()                                   // fake offers HDR on display 2 only
+        await c.reload()
+        let r = CommandRouter(center: c)
+        let ok = await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("hdr"), "value": .string("on"), "display": .string("dell")]))
+        #expect(ok.ok)
+        let refused = await r.handle(IPCRequest(cmd: "extras.set", args: ["name": .string("hdr"), "value": .string("on"), "display": .string("built")]))
+        #expect(!refused.ok && refused.code == ExitCode.refused)
+    }
+
+    @Test func trueToneRefusedWhenUnsupported() async {
+        let fake = FakeSystemExtras(trueToneSupported: false)
+        #expect(await fake.setTrueTone(true) == false)
+        #expect(await fake.state().trueTone == nil)
+    }
+
+    @Test func presetsCarryAndApplyExtras() async throws {
+        let (c, _) = makeCenter()
+        await c.reload()
+        _ = await c.extras.setDarkMode(false); _ = await c.extras.setNightShift(false)
+        var p = Preset(name: "Night", displays: [], extras: ExtrasPreset(darkMode: true, nightShift: true, nightShiftStrength: 70, trueTone: false))
+        try c.presets.upsert(p)
+        let results = try await c.activatePreset("night")
+        #expect(PresetApplier.summary(results).failed == 0)
+        let st = await c.extras.state()
+        #expect(st.darkMode == true && st.nightShift == true && st.nightShiftStrength == 70 && st.trueTone == false)
+
+        // Capturing records the current state, and an older preset file without the key still loads.
+        let captured = await c.capturePreset(name: "Now")
+        #expect(captured.extras?.darkMode == true && captured.extras?.nightShiftStrength == 70)
+        p.extras = nil
+        let old = try JSONDecoder().decode(Preset.self, from: JSONEncoder().encode(p))
+        #expect(old.extras == nil)
+    }
+
+    @Test func unsupportedExtrasAreReportedNotFatal() async throws {
+        let sys = FakeSystem()
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let c = DisplayCenter(system: sys, presets: PresetStore(url: dir.appendingPathComponent("p.json")),
+                              schedules: ScheduleStore(url: dir.appendingPathComponent("s.json")),
+                              settingsURL: dir.appendingPathComponent("d.json"), timing: .fast, extras: FakeSystemExtras(trueToneSupported: false))
+        await c.reload()
+        try c.presets.upsert(Preset(name: "T", displays: [], extras: ExtrasPreset(darkMode: true, trueTone: true)))
+        let results = try await c.activatePreset("t")
+        let s = PresetApplier.summary(results)
+        #expect(s.failed == 1)
+        #expect(await c.extras.state().darkMode == true)               // the supported part still applied
+    }
+}
+
+@Suite struct ColorProfileTests {
+    func prep() async -> (DisplayCenter, CommandRouter) {
+        let (c, _) = makeCenter()
+        await c.reload()
+        return (c, CommandRouter(center: c))
+    }
+    func state(_ r: IPCResponse) throws -> ColorProfileState { try JSONDecoder().decode(ColorProfileState.self, from: JSONEncoder().encode(r.data)) }
+
+    @Test func listsSwitchesAndResets() async throws {
+        let (_, r) = await prep()
+        let list = try state(await r.handle(IPCRequest(cmd: "profiles.get", args: ["display": .string("dell")])))
+        #expect(list.available.count == 3 && list.current?.isFactory == true)
+
+        let set = try state(await r.handle(IPCRequest(cmd: "profile.set", args: ["display": .string("dell"), "profile": .string("srgb")])))
+        #expect(set.current?.name == "sRGB")
+        let partial = try state(await r.handle(IPCRequest(cmd: "profile.set", args: ["display": .string("dell"), "profile": .string("p3")])))
+        #expect(partial.current?.name == "Display P3")                      // a unique part of the name is enough
+        let reset = try state(await r.handle(IPCRequest(cmd: "profile.set", args: ["display": .string("dell"), "profile": .string("reset")])))
+        #expect(reset.current?.isFactory == true)
+        let missing = await r.handle(IPCRequest(cmd: "profile.set", args: ["display": .string("dell"), "profile": .string("nonsense")]))
+        #expect(!missing.ok && missing.code == ExitCode.usage)
+    }
+
+    @Test func presetsStoreAndApplyTheProfile() async throws {
+        let (c, _) = await prep()
+        var s = DisplayPresetSettings(identityKey: try await c.resolve("dell").key, displayName: "Dell")
+        s.colorProfile = "/fake/srgb.icc"
+        try c.presets.upsert(Preset(name: "Proof", displays: [s]))
+        let results = try await c.activatePreset("proof")
+        #expect(PresetApplier.summary(results).failed == 0)
+        #expect(try await c.colorProfiles(key: try await c.resolve("dell").key).current?.name == "sRGB")
+
+        s.colorProfile = ""                                                  // empty means the display's own profile
+        try c.presets.upsert(Preset(name: "Own", displays: [s]))
+        _ = try await c.activatePreset("own")
+        #expect(try await c.colorProfiles(key: try await c.resolve("dell").key).current?.isFactory == true)
+    }
+
+    @Test func capturedPresetRecordsTheCurrentProfile() async throws {
+        let (c, _) = await prep()
+        let key = try await c.resolve("dell").key
+        try await c.applyColorProfile(key: key, path: "/fake/p3.icc")
+        let p = await c.capturePreset(name: "Now")
+        #expect(p.displays.first { $0.identityKey == key }?.colorProfile == "/fake/p3.icc")
+    }
+}
+
+@Suite struct ProfileHeaderTests {
+    func header(cls: String, space: String) -> Data { Data(repeating: 0, count: 12) + Data(cls.utf8) + Data(space.utf8) }
+    @Test func acceptsOnlyRGBScreenProfiles() {
+        #expect(ColorProfiles.isDisplayHeader(header(cls: "mntr", space: "RGB ")))
+        #expect(ColorProfiles.isDisplayHeader(header(cls: "spac", space: "RGB ")))
+        #expect(!ColorProfiles.isDisplayHeader(header(cls: "prtr", space: "CMYK")))
+        #expect(!ColorProfiles.isDisplayHeader(header(cls: "mntr", space: "GRAY")))
+        #expect(!ColorProfiles.isDisplayHeader(header(cls: "abst", space: "RGB ")))       // effects such as Sepia
+        #expect(!ColorProfiles.isDisplayHeader(Data(count: 4)))
+    }
+    @Test func realSystemProfilesAreRecognized() {
+        let srgb = URL(fileURLWithPath: "/System/Library/ColorSync/Profiles/sRGB Profile.icc")
+        if FileManager.default.fileExists(atPath: srgb.path) {
+            #expect(ColorProfiles.isDisplayProfile(srgb))
+            #expect(!ColorProfiles.isDisplayProfile(URL(fileURLWithPath: "/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc")))
+        }
+    }
+}
+
+@Suite struct FadeLimitPanicTests {
+    @Test func rampEndsOnTheTargetAndNeverSkipsAPoint() {
+        for (from, to, secs) in [(0, 100, 3.0), (100, 0, 2.0), (40, 45, 5.0), (50, 50, 2.0), (10, 11, 1.0)] {
+            let s = RampMath.steps(from: from, to: to, seconds: secs)
+            #expect(s.last == to)
+            var prev = from
+            for v in s { #expect(abs(v - prev) <= max(1, Int((Double(abs(to - from)) / Double(max(1, s.count))).rounded(.up)) + 1)); prev = v }
+            #expect(s.count <= max(1, abs(to - from)))                   // never more steps than points to travel
+        }
+        #expect(RampMath.steps(from: 0, to: 100, seconds: 1).count == 12)
+        #expect(RampMath.steps(from: 3, to: 3, seconds: 4) == [3])
+    }
+
+    @Test func limitsClampAndRepairBackwardsWindows() {
+        #expect(BrightnessLimits.clamp(0, floor: 10, ceiling: 90) == 10)
+        #expect(BrightnessLimits.clamp(100, floor: 10, ceiling: 90) == 90)
+        #expect(BrightnessLimits.clamp(50, floor: 10, ceiling: 90) == 50)
+        #expect(BrightnessLimits.clamp(5, floor: 80, ceiling: 20) == 80)       // floor above ceiling: the floor wins
+    }
+
+    @Test func floorStopsKeysAndSlidersAndSync() async throws {
+        let (c, sys) = makeCenter()
+        await c.reload()
+        let key = try await c.resolve("dell").key
+        await c.updateSettings(key: key) { $0.brightnessFloor = 20; $0.brightnessCeiling = 80 }
+        try await c.set(query: "dell", .brightness, to: 0)
+        await c.settle()
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 20)
+        try await c.set(query: "dell", .brightness, to: 100)
+        await c.settle()
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 80)
+        let d = try await c.resolve("dell")
+        await c.updateSettings(key: key) { $0.stepSize = 50 }
+        try await c.adjust(d, .brightness, steps: -1)                           // a key press well past the floor
+        await c.settle()
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 30)
+        try await c.adjust(d, .brightness, steps: -1)
+        await c.settle()
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 20)               // stops at the floor, not 0
+    }
+
+    @Test func fadeReachesTheExactPresetValues() async throws {
+        let (c, sys) = makeCenter()
+        await c.reload()
+        let key = try await c.resolve("dell").key
+        try await c.set(query: "dell", .brightness, to: 90)
+        await c.settle()
+        var item = DisplayPresetSettings(identityKey: key, displayName: "Dell"); item.brightness = 30; item.contrast = 55
+        try c.presets.upsert(Preset(name: "Calm", displays: [item], fadeSeconds: 0.6))
+        let t0 = ContinuousClock.now
+        let results = try await c.activatePreset("calm")
+        await c.settle()
+        #expect(ContinuousClock.now - t0 >= .milliseconds(500))                  // it really took its time
+        #expect(PresetApplier.summary(results).failed == 0)
+        #expect(sys.monitors[2]!.value(DDC.VCP.brightness) == 30 && sys.monitors[2]!.value(DDC.VCP.contrast) == 55)
+        // Writes were spread out, not one jump: more than the final write alone reached the monitor.
+        #expect(sys.monitors[2]!.setCount >= 3)
+    }
+
+    @Test func noFadeMeansNoWaiting() async throws {
+        let (c, _) = makeCenter()
+        await c.reload()
+        let key = try await c.resolve("dell").key
+        var item = DisplayPresetSettings(identityKey: key, displayName: "Dell"); item.brightness = 10
+        try c.presets.upsert(Preset(name: "Fast", displays: [item]))
+        let t0 = ContinuousClock.now
+        _ = try await c.activatePreset("fast")
+        #expect(ContinuousClock.now - t0 < .milliseconds(400))
+    }
+
+    @Test func panicUndoesBoostAndProfileAndReportsIt() async throws {
+        let (c, sys) = makeCenter()
+        await c.reload()
+        try await c.set(query: "dell", .boost, to: 170)
+        let key = try await c.resolve("dell").key
+        try await c.applyColorProfile(key: key, path: "/fake/srgb.icc")
+        let done = await c.panicReset()
+        await c.settle()
+        #expect(done.contains { $0.contains("extra brightness") } && done.contains { $0.contains("color profile") })
+        #expect([sys.monitors[2]!.value(0x16), sys.monitors[2]!.value(0x18), sys.monitors[2]!.value(0x1A)] == [50, 47, 42])
+        #expect(try await c.colorProfiles(key: key).current?.isFactory == true)
+        // Nothing to undo: it still succeeds, and says only what it did.
+        let again = await c.panicReset()
+        #expect(again == ["software dimming cleared"])
+    }
+
+    @Test func newSettingsLoadFromOldFiles() throws {
+        let old = try JSONDecoder().decode(DisplaySettings.self, from: Data(#"{"stepSize":5,"volumeCap":100}"#.utf8))
+        #expect(old.brightnessFloor == 0 && old.brightnessCeiling == 100)
+        let p = try JSONDecoder().decode(Preset.self, from: JSONEncoder().encode(Preset(name: "x")))
+        #expect(p.fadeSeconds == nil)
+        #expect(AppSettings().showHUD && !AppSettings().showMenuBarValue)
     }
 }

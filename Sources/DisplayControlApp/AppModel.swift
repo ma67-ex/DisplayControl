@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published var keyTapRunning = false
     @Published var selfTest: SelfTestReport?
     @Published var runningSelfTest = false
+    @Published var extras = ExtrasState()
 
     let center: DisplayCenter
     let settingsStore: SettingsStore
@@ -39,6 +40,7 @@ final class AppModel: ObservableObject {
         presets = center.presets.all
         schedules = center.schedules.all
         sync = await center.sync
+        extras = await center.extras.state()
         settings = settingsStore.current
         accessibilityGranted = MediaKeyTap.hasPermission
     }
@@ -60,6 +62,12 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Values
+
+    /// The brightness to show beside the menu bar icon: the first external display, else the first display.
+    var menuBarBrightness: Int? {
+        let d = displays.first { !$0.isBuiltIn && $0.supported.contains(.brightness) } ?? displays.first { $0.supported.contains(.brightness) }
+        return d?.values["brightness"]
+    }
 
     func value(_ key: String, _ property: DisplayProperty) -> Int {
         displays.first { $0.key == key }?.values[property.rawValue] ?? 0
@@ -106,6 +114,24 @@ final class AppModel: ObservableObject {
             await reload()
         }
     }
+
+    // MARK: Display extras
+
+    /// Applies at once in the UI, then confirms with the system.
+    func setExtra(_ change: @escaping @Sendable (SystemExtras) async -> Bool, optimistic: (inout ExtrasState) -> Void) {
+        optimistic(&extras)
+        Task { [center] in
+            let ok = await change(center.extras)
+            if !ok { banner = "That setting is not available on this Mac." }
+            extras = await center.extras.state()
+        }
+    }
+
+    func setDarkMode(_ on: Bool) { setExtra({ await $0.setDarkMode(on) }) { $0.darkMode = on } }
+    func setNightShift(_ on: Bool) { setExtra({ await $0.setNightShift(on) }) { $0.nightShift = on } }
+    func setNightShiftStrength(_ v: Int) { setExtra({ await $0.setNightShiftStrength(v) }) { $0.nightShiftStrength = v } }
+    func setTrueTone(_ on: Bool) { setExtra({ await $0.setTrueTone(on) }) { $0.trueTone = on } }
+    func setHDR(display id: UInt32, _ on: Bool) { setExtra({ await $0.setHDR(displayID: id, on) }) { $0.hdr[String(id)] = on } }
 
     // MARK: Presets
 

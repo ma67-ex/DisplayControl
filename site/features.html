@@ -40,6 +40,20 @@
 <tr><td>Built-in and Apple displays</td><td>macOS DisplayServices</td><td>Brightness. Loaded at runtime, so the app still works if macOS changes it.</td></tr>
 <tr><td>Software dimming</td><td>Gamma tables</td><td>For monitors that refuse DDC, and for virtual displays. Never goes fully black, and is restored on every exit path.</td></tr></table>
 
+<h2>System switches and color</h2>
+<ul>
+<li><strong>Dark Mode, Night Shift (with its warmth) and True Tone</strong> from three tiles in the window, from the command line (<code>displaycontrol extra darkmode on</code>) and inside presets. True Tone shows only on Macs that have it. These use private macOS interfaces loaded at run time, so a future macOS may change them.</li>
+<li><strong>HDR switch</strong> for displays that offer one. It is hidden when macOS reports no support, and it has not been tested on an HDR monitor.</li>
+<li><strong>Color profile picker</strong> per display (sRGB, Display P3, your calibrated profiles), with a reset to the display's own profile. Also available in presets and as <code>displaycontrol profile</code>.</li></ul>
+
+<h2>Comfort and safety</h2>
+<ul>
+<li><strong>Fade presets.</strong> A preset can ease brightness, contrast and volume over a few seconds instead of jumping. It always ends on the exact preset values. <code>displaycontrol preset activate Evening --fade 5</code>.</li>
+<li><strong>Brightness limits.</strong> Set a lowest and highest brightness per display, so a key or slider can never black a screen out.</li>
+<li><strong>On-screen bar.</strong> A small bar with the glow shows the new value on the display you changed, when you use the keys. Optional.</li>
+<li><strong>Brightness beside the icon.</strong> Optional number in the menu bar.</li>
+<li><strong>Reset everything.</strong> One button, one command (<code>displaycontrol panic</code>) and an optional shortcut that clear software dimming, extra brightness and a switched color profile.</li></ul>
+
 <h2>Several displays</h2>
 <p><strong>Sync</strong> makes one display the host and the rest follow, for brightness, contrast and volume. Each follower has an offset: "when the host is at 100 percent, this display is at 70". Followers only change for controls they support.</p>
 <p><strong>Presets</strong> store exactly what you tick: brightness, contrast, volume, mute, input, power, rotation, resolution, position and sync. They apply in a fixed order so values land on an awake display on the right input. A display that is not connected is skipped, not treated as an error.</p>
@@ -69,8 +83,10 @@
 
 <h2>Not included</h2>
 <ul><li>Samsung and LG smart monitor control over Wi-Fi.</li>
-<li>HDR, True Tone and Night Shift toggles.</li>
-<li>Brightness beyond a display's normal maximum.</li>
+<li>Siri, Spotlight, Shortcuts actions, widgets and Control Center controls (they need an Xcode build).</li>
+<li>Other languages: the app is English only.</li>
+<li>macOS "Display Presets" and Reference Modes.</li>
+<li>Brightness beyond the panel maximum on MacBook Pro and Studio Display XDR screens. (Extra brightness through the color gains works on monitors that have them.)</li>
 <li>DDC on Intel Macs. They get Apple-display control and software dimming.</li>
 <li>Windows.</li></ul>
 </div>

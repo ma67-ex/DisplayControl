@@ -44,6 +44,7 @@ final class AppEnvironment {
     let scheduler: Scheduler
     let keyboard: KeyboardController
     let keyTargets = KeyTargets()
+    let hud = HUDController()
     let locationProvider = LocationProvider()
     private var server: IPCServer?
     private var tap: MediaKeyTap?
@@ -64,7 +65,7 @@ final class AppEnvironment {
         center = demo
             ? DisplayCenter(system: system, presets: PresetStore(url: temp.appendingPathComponent("presets.json")),
                             schedules: ScheduleStore(url: temp.appendingPathComponent("schedules.json")),
-                            settingsURL: temp.appendingPathComponent("displays.json"))
+                            settingsURL: temp.appendingPathComponent("displays.json"), extras: FakeSystemExtras())
             : DisplayCenter(system: system)
         model = AppModel(center: center, settings: settings)
         router = CommandRouter(center: center)
@@ -99,6 +100,7 @@ final class AppEnvironment {
             await center.observeTopology { [weak self] in Task { @MainActor in await self?.refreshModel() } }
             await center.observe { [weak self] change in
                 if change.origin != .user { Task { @MainActor in self?.model.scheduleReload() } }
+                if change.origin == .keyboard, change.property.isPercent { Task { @MainActor in self?.showHUD(for: change) } }
             }
             await scheduler.setNeedLocationHandler { [weak self] in
                 Task { @MainActor in self?.requestLocationForSchedules() }
@@ -117,6 +119,12 @@ final class AppEnvironment {
         installSignalHandlers()
         NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(handleURL(_:reply:)),
                                                      forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    }
+
+    /// The on-screen bar for a key press. It shows the value the display actually accepted, after limits.
+    func showHUD(for change: DisplayChange) {
+        guard settings.current.showHUD, let snap = model.displays.first(where: { $0.key == change.identity.key }) else { return }
+        hud.show(property: change.property, value: change.value, name: snap.name, displayID: snap.id)
     }
 
     func refreshModel() async {
@@ -345,6 +353,8 @@ final class AppEnvironment {
         let pop = MenuView(model: model) { _ in }
         render(pop, NSSize(width: 344, height: 560), "popover-night", fitHeight: true, appearance: night)
         render(pop, NSSize(width: 344, height: 560), "popover-light", fitHeight: true, appearance: light)
+        render(HUDView(property: .brightness, value: 72, displayName: "ED270R S3"), NSSize(width: 420, height: 130), "hud-night", fitHeight: true, appearance: night)
+        render(HUDView(property: .volume, value: 35, displayName: "ED270R S3"), NSSize(width: 420, height: 130), "hud-light", fitHeight: true, appearance: light)
         render(GlowGallery(), NSSize(width: 344, height: 560), "glow-night", fitHeight: true, appearance: night)
         render(GlowGallery(), NSSize(width: 344, height: 560), "glow-light", fitHeight: true, appearance: light)
         for (tab, name) in [(SettingsTab.general, "settings-general"), (.displays, "settings-displays"), (.keyboard, "settings-keyboard")] {
@@ -383,7 +393,10 @@ struct DisplayControlApp: App {
         MenuBarExtra {
             MenuView(model: model) { tab in AppEnvironment.shared.openSettings(tab) }
         } label: {
-            Image(systemName: "display")
+            HStack(spacing: 4) {
+                Image(systemName: "display")
+                if model.settings.showMenuBarValue, let b = model.menuBarBrightness { Text("\(b)%").font(.system(size: 12, weight: .medium).monospacedDigit()) }
+            }
         }
         .menuBarExtraStyle(.window)
     }

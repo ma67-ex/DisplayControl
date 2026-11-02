@@ -78,6 +78,7 @@ public actor ManagedDisplay {
         guard supported.contains(property) else { throw CenterError.unsupported(info.name, property) }
         var v = value
         if property == .volume { v = min(v, settings.volumeCap) }
+        if property == .brightness { v = BrightnessLimits.clamp(v, floor: settings.brightnessFloor, ceiling: settings.brightnessCeiling) }
         if property.isPercent { v = ValueMapper.clampPercent(v) }
         try await backend.set(property, to: v)
         values[property] = v
@@ -102,6 +103,7 @@ public actor DisplayCenter: PresetTarget {
     public nonisolated let schedules: ScheduleStore
     private let settingsURL: URL
     private let timing: DDCTiming
+    public nonisolated let extras: SystemExtras
 
     private var displays: [String: ManagedDisplay] = [:]
     private var order: [String] = []
@@ -114,8 +116,8 @@ public actor DisplayCenter: PresetTarget {
     private nonisolated let slots = LatestValueSlots()
 
     public init(system: DisplaySystem, presets: PresetStore = PresetStore(), schedules: ScheduleStore = ScheduleStore(),
-                settingsURL: URL = Paths.displaysFile, timing: DDCTiming = DDCTiming()) {
-        self.system = system; self.presets = presets; self.schedules = schedules
+                settingsURL: URL = Paths.displaysFile, timing: DDCTiming = DDCTiming(), extras: SystemExtras = LiveSystemExtras()) {
+        self.extras = extras; self.system = system; self.presets = presets; self.schedules = schedules
         self.settingsURL = settingsURL; self.timing = timing
         self.settingsByKey = AtomicJSON.read([String: DisplaySettings].self, from: settingsURL) ?? [:]
     }
@@ -433,16 +435,61 @@ public actor DisplayCenter: PresetTarget {
 
     public func applyMode(key: String, _ mode: ControlMode) async throws { try await setMode(key: key, mode) }
 
-    public func activatePreset(_ query: String, delay: Double? = nil) async throws -> [ApplyResult] {
+    public func applyColorProfile(key: String, path: String?) async throws {
+        guard let d = displays[key] else { throw CenterError.displayNotFound(key) }
+        guard await extras.setColorProfile(displayID: await d.info.id, path: path) else {
+            throw CenterError.invalidValue("This display would not switch color profile")
+        }
+    }
+
+    public func colorProfiles(key: String) async throws -> ColorProfileState {
+        guard let d = displays[key] else { throw CenterError.displayNotFound(key) }
+        return await extras.colorProfiles(displayID: await d.info.id)
+    }
+
+    /// Returns the names of the switches this Mac could not apply.
+    public func applyExtras(_ e: ExtrasPreset) async -> [String] {
+        var failed: [String] = []
+        if let v = e.darkMode, !(await extras.setDarkMode(v)) { failed.append("dark mode") }
+        if let v = e.nightShiftStrength, !(await extras.setNightShiftStrength(v)) { failed.append("night shift strength") }
+        if let v = e.nightShift, !(await extras.setNightShift(v)) { failed.append("night shift") }
+        if let v = e.trueTone, !(await extras.setTrueTone(v)) { failed.append("true tone") }
+        return failed
+    }
+
+    public func activatePreset(_ query: String, delay: Double? = nil, fade: Double? = nil) async throws -> [ApplyResult] {
         guard let p = presets.find(query) else { throw CenterError.presetNotFound(query) }
         let wait = delay ?? p.delaySeconds ?? 0
         if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        await fadeToward(p, seconds: fade ?? p.fadeSeconds ?? 0)
         return await PresetApplier.apply(p, to: self)
+    }
+
+    /// Eases brightness, contrast and volume toward a preset's values over `seconds`. The preset is then applied in
+    /// full, so whatever the fade did or did not reach, the end state is exact.
+    private func fadeToward(_ p: Preset, seconds: Double) async {
+        guard seconds > 0.2 else { return }
+        var plans: [(ManagedDisplay, DisplayProperty, [Int])] = []
+        for item in p.displays {
+            guard let d = displays[item.identityKey] else { continue }
+            for (prop, target) in [(DisplayProperty.brightness, item.brightness), (.contrast, item.contrast), (.volume, item.volume)] {
+                guard let target, await d.supported.contains(prop), let from = await d.refresh(prop), from != target else { continue }
+                plans.append((d, prop, RampMath.steps(from: from, to: target, seconds: seconds)))
+            }
+        }
+        guard let longest = plans.map({ $0.2.count }).max() else { return }
+        let pause = seconds / Double(longest)
+        for i in 0..<longest {
+            for (d, prop, steps) in plans { await submit(key: await d.key, prop, to: steps[min(i, steps.count - 1)], origin: .preset) }
+            try? await Task.sleep(for: .seconds(pause))
+        }
+        await settle()
     }
 
     public func activatePreset(id: UUID) async throws -> [ApplyResult] {
         guard let p = presets.all.first(where: { $0.id == id }) else { throw CenterError.presetNotFound(id.uuidString) }
         if let w = p.delaySeconds, w > 0 { try? await Task.sleep(for: .seconds(w)) }
+        await fadeToward(p, seconds: p.fadeSeconds ?? 0)
         return await PresetApplier.apply(p, to: self)
     }
 
@@ -456,10 +503,13 @@ public actor DisplayCenter: PresetTarget {
             let v = await d.values
             s.brightness = v[.brightness]; s.contrast = v[.contrast]; s.volume = v[.volume]
             s.arrangement = system.origin(displayID: await d.info.id)
+            if let cur = await extras.colorProfiles(displayID: await d.info.id).current { s.colorProfile = cur.isFactory ? "" : cur.path }
             s.resolution = system.currentResolution(displayID: await d.info.id)
             items.append(s)
         }
-        return Preset(name: name, icon: icon, displays: items, sync: sync.enabled ? sync : nil)
+        let st = await extras.state()
+        let ex = ExtrasPreset(darkMode: st.darkMode, nightShift: st.nightShift, nightShiftStrength: st.nightShiftStrength, trueTone: st.trueTone)
+        return Preset(name: name, icon: icon, displays: items, sync: sync.enabled ? sync : nil, extras: ex.isEmpty ? nil : ex)
     }
 
     // MARK: Lifecycle
@@ -471,12 +521,47 @@ public actor DisplayCenter: PresetTarget {
         CGDisplayRestoreColorSyncSettings()
     }
 
+    /// One call that undoes the things that can leave a screen looking wrong: software dimming, extra brightness and a
+    /// switched color profile. Reports what it changed.
+    public func panicReset() async -> [String] {
+        var done: [String] = []
+        CGDisplayRestoreColorSyncSettings(); done.append("software dimming cleared")
+        for k in order {
+            guard let d = displays[k] else { continue }
+            let name = await d.info.name
+            if await d.supported.contains(.boost), (await d.refresh(.boost) ?? 100) > 100 {
+                try? await set(d, .boost, to: 100, origin: .user); done.append("\(name): extra brightness back to 100%")
+            }
+            if await extras.colorProfiles(displayID: await d.info.id).current?.isFactory == false,
+               await extras.setColorProfile(displayID: await d.info.id, path: nil) { done.append("\(name): own color profile restored") }
+        }
+        await settle()
+        return done
+    }
+
     /// Re-applies software dimming after wake or reconfiguration (macOS resets gamma on those events).
     public func reapplySoftwareDimming() async {
         for d in displays.values { if let s = await d.backend as? SoftwareBackend { s.reapply() } }
     }
 }
 
+
+/// The allowed brightness window of a display. A floor above the ceiling is repaired, never trusted.
+public enum BrightnessLimits {
+    public static func clamp(_ v: Int, floor: Int, ceiling: Int) -> Int {
+        let lo = max(0, min(100, floor)), hi = max(lo, min(100, ceiling))
+        return max(lo, min(hi, v))
+    }
+}
+
+/// Evenly spaced values for a fade. The last value is always the target, and no step is smaller than one point.
+public enum RampMath {
+    public static func steps(from: Int, to: Int, seconds: Double, rate: Double = 12) -> [Int] {
+        guard from != to else { return [to] }
+        let count = max(1, min(abs(to - from), Int((seconds * rate).rounded())))
+        return (1...count).map { i in from + Int((Double(to - from) * Double(i) / Double(count)).rounded()) }
+    }
+}
 
 struct Pending: Sendable {
     let key: String

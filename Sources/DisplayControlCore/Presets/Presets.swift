@@ -37,6 +37,8 @@ public struct DisplayPresetSettings: Codable, Equatable, Sendable {
     public var resolution: ResolutionSpec?
     public var arrangement: ArrangementSpec?
     public var mode: ControlMode?
+    /// File path of a ColorSync profile, or the empty string for the display's own profile.
+    public var colorProfile: String?
 
     public init(identityKey: String, displayName: String) {
         self.identityKey = identityKey; self.displayName = displayName
@@ -49,13 +51,17 @@ public struct Preset: Codable, Equatable, Identifiable, Sendable {
     public var icon: String
     public var displays: [DisplayPresetSettings]
     public var sync: SyncState?
+    /// Dark Mode, Night Shift and True Tone, applied after the display values.
+    public var extras: ExtrasPreset?
     public var delaySeconds: Double?
+    /// Ease brightness, contrast and volume over this many seconds instead of jumping.
+    public var fadeSeconds: Double?
     public var hotkey: HotKeySpec?
 
     public init(id: UUID = UUID(), name: String, icon: String = "sun.max", displays: [DisplayPresetSettings] = [],
-                sync: SyncState? = nil, delaySeconds: Double? = nil, hotkey: HotKeySpec? = nil) {
+                sync: SyncState? = nil, extras: ExtrasPreset? = nil, delaySeconds: Double? = nil, fadeSeconds: Double? = nil, hotkey: HotKeySpec? = nil) {
         self.id = id; self.name = name; self.icon = icon; self.displays = displays
-        self.sync = sync; self.delaySeconds = delaySeconds; self.hotkey = hotkey
+        self.sync = sync; self.extras = extras; self.delaySeconds = delaySeconds; self.fadeSeconds = fadeSeconds; self.hotkey = hotkey
     }
 }
 
@@ -125,7 +131,9 @@ public protocol PresetTarget: Sendable {
     func applyResolution(key: String, _ spec: ResolutionSpec) async throws
     func applyArrangement(key: String, _ spec: ArrangementSpec) async throws
     func applyMode(key: String, _ mode: ControlMode) async throws
+    func applyColorProfile(key: String, path: String?) async throws
     func applySync(_ state: SyncState) async
+    func applyExtras(_ extras: ExtrasPreset) async -> [String]
 }
 
 public enum PresetApplier {
@@ -147,6 +155,7 @@ public enum PresetApplier {
         for d in preset.displays { if let a = d.arrangement { await run(d.identityKey, "arrangement") { try await target.applyArrangement(key: d.identityKey, a) } } }
         for d in preset.displays { if let m = d.mode { await run(d.identityKey, "mode") { try await target.applyMode(key: d.identityKey, m) } } }
         for d in preset.displays { if let r = d.resolution { await run(d.identityKey, "resolution") { try await target.applyResolution(key: d.identityKey, r) } } }
+        for d in preset.displays { if let c = d.colorProfile { await run(d.identityKey, "color profile") { try await target.applyColorProfile(key: d.identityKey, path: c.isEmpty ? nil : c) } } }
         for d in preset.displays { if let r = d.rotation { await run(d.identityKey, "rotation") { try await target.apply(key: d.identityKey, property: .rotation, value: r) } } }
         for d in preset.displays { if let p = d.power { await run(d.identityKey, "power") { try await target.apply(key: d.identityKey, property: .power, value: p ? 1 : 0) } } }
         for d in preset.displays { if let i = d.input { await run(d.identityKey, "input") { try await target.apply(key: d.identityKey, property: .input, value: i) } } }
@@ -158,6 +167,9 @@ public enum PresetApplier {
             if let v = d.volume { await run(d.identityKey, "volume") { try await target.apply(key: d.identityKey, property: .volume, value: v) } }
         }
         if let s = preset.sync, s.enabled { await target.applySync(s) }                // turn sync on after values are set
+        if let e = preset.extras, !e.isEmpty {
+            for failed in await target.applyExtras(e) { results.append(.init(displayKey: "system", item: failed, status: .failed("not available on this Mac"))) }
+        }
         return results
     }
 

@@ -40,6 +40,11 @@ displaycontrol sync enable "Acer"
 displaycontrol mode "Acer" software
 displaycontrol selftest "Acer"
 displaycontrol probe
+displaycontrol extras
+displaycontrol extra nightshift on
+displaycontrol extra nightshift-strength 70
+displaycontrol profiles "Built-in"
+displaycontrol profile "Built-in" sRGB
 displaycontrol reset-gamma</code></pre>
 <p>Pick a display by name (partial is fine), <code>--index N</code> or <code>--uuid KEY</code>. Output is readable in a terminal and JSON when piped; force either with <code>--human</code> or <code>--json</code>.</p>
 <table><tr><th>Exit code</th><th>Meaning</th></tr>

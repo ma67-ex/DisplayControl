@@ -95,6 +95,9 @@ public struct DisplaySettings: Codable, Sendable, Equatable {
     public var preferredMode: ControlMode?
     public var stepSize: Int = 5
     public var volumeCap: Int = 100
+    /// Brightness never goes below the floor or above the ceiling, so a key can never black out a screen.
+    public var brightnessFloor: Int = 0
+    public var brightnessCeiling: Int = 100
     public var hidden: Bool = false
     /// Sync map: `follower = clamp(scale * host + constant)`.
     public var syncScale: Double = 1.0
@@ -104,4 +107,21 @@ public struct DisplaySettings: Codable, Sendable, Equatable {
     public var gainBaseline: [Int]?
     public var gainBaselinePreset: Int?
     public init() {}
+
+    // Tolerant decoding: a file saved by an older version lacks newer keys and must keep the values it does have.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        friendlyName = try c.decodeIfPresent(String.self, forKey: .friendlyName)
+        preferredMode = try c.decodeIfPresent(ControlMode.self, forKey: .preferredMode)
+        stepSize = try c.decodeIfPresent(Int.self, forKey: .stepSize) ?? 5
+        volumeCap = try c.decodeIfPresent(Int.self, forKey: .volumeCap) ?? 100
+        brightnessFloor = try c.decodeIfPresent(Int.self, forKey: .brightnessFloor) ?? 0
+        brightnessCeiling = try c.decodeIfPresent(Int.self, forKey: .brightnessCeiling) ?? 100
+        hidden = try c.decodeIfPresent(Bool.self, forKey: .hidden) ?? false
+        syncScale = try c.decodeIfPresent(Double.self, forKey: .syncScale) ?? 1
+        syncConstant = try c.decodeIfPresent(Double.self, forKey: .syncConstant) ?? 0
+        doubleWrite = try c.decodeIfPresent(Bool.self, forKey: .doubleWrite) ?? false
+        gainBaseline = try c.decodeIfPresent([Int].self, forKey: .gainBaseline)
+        gainBaselinePreset = try c.decodeIfPresent(Int.self, forKey: .gainBaselinePreset)
+    }
 }

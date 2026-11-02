@@ -32,7 +32,9 @@ actor RecordingTarget: PresetTarget {
     func applyResolution(key: String, _ spec: ResolutionSpec) async throws { log.append("\(key):res=\(spec.width)x\(spec.height)") }
     func applyArrangement(key: String, _ spec: ArrangementSpec) async throws { log.append("\(key):arr=\(spec.x),\(spec.y)") }
     func applyMode(key: String, _ mode: ControlMode) async throws { log.append("\(key):mode=\(mode.rawValue)") }
+    func applyColorProfile(key: String, path: String?) async throws { log.append("\(key):profile=\(path ?? "own")") }
     func applySync(_ state: SyncState) async { log.append("sync=\(state.enabled)") }
+    func applyExtras(_ extras: ExtrasPreset) async -> [String] { log.append("extras=\(extras.darkMode.map(String.init) ?? "-")"); return [] }
 }
 
 @Suite struct PresetTests {
