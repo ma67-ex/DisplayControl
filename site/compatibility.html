@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compatibility | DisplayControl</title>
+<meta name="description" content="Which monitors and connections have been tested with DisplayControl, and how to add yours.">
+<link rel="canonical" href="https://displaycontrol.example/compatibility.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Compatibility | DisplayControl">
+<meta property="og:description" content="Which monitors and connections have been tested with DisplayControl, and how to add yours.">
+<meta property="og:url" content="https://displaycontrol.example/compatibility.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Compatibility | DisplayControl">
+<meta name="twitter:description" content="Which monitors and connections have been tested with DisplayControl, and how to add yours.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="features.html">Features</a><a href="docs/index.html">Docs</a><a href="faq.html">FAQ</a><a href="compatibility.html" aria-current="page">Compatibility</a><a href="download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><main id="main">
+<div class="prose" style="max-width:none">
+<h1>Compatibility</h1>
+<p class="lede">Whether DDC works depends on the Mac, the cable, anything between them and how well the monitor implements the standard. This page lists only what has actually been tested.</p>
+
+<h2>Tested combinations</h2>
+<table><tr><th>Monitor</th><th>Mac and connection</th><th>Brightness</th><th>Contrast</th><th>Volume</th><th>Input</th><th>Reported by</th></tr>
+<tr><td>Acer ED270R S3</td><td>Apple Silicon MacBook, HDMI</td><td>Works</td><td>Reads, but writes did not change it in the monitor's active picture mode</td><td>Not offered by the monitor</td><td>Reads (HDMI 1)</td><td>The author, with <code>displaycontrol selftest</code></td></tr></table>
+<p>That is one row. No success rate is claimed. If you test another monitor, please add it.</p>
+
+<h2>Add your monitor</h2>
+<ol class="steps">
+<li>Open DisplayControl and run <code>displaycontrol probe</code> in Terminal.</li>
+<li>Run <code>displaycontrol selftest "Your monitor name"</code>. It nudges brightness by three points and restores it.</li>
+<li>Open an issue on the <a href="https://github.com/OWNER/DisplayControl/issues">project page</a> with the monitor model, Mac model, cable or dock, and both outputs.</li></ol>
+
+<h2>What usually goes wrong</h2>
+<ul>
+<li><strong>Picture modes.</strong> Game, Movie and similar presets can lock brightness or contrast. Switch the monitor to a Custom mode.</li>
+<li><strong>DDC/CI turned off.</strong> Some monitors have a menu switch for it.</li>
+<li><strong>Docks, hubs, KVMs and adapters.</strong> Cheap ones often block the signal.</li>
+<li><strong>Some Apple Silicon ports.</strong> Others have reported DDC failing over HDMI on certain Macs. If that happens to you, try USB-C or DisplayPort. DisplayControl falls back to software dimming on its own.</li>
+<li><strong>Intel Macs.</strong> Hardware DDC is not implemented for Intel. Software dimming and Apple displays work.</li></ul>
+</div>
+</main></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="license.html">MIT License</a>).</span>
+<a href="privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

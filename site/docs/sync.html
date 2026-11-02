@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sync | DisplayControl docs</title>
+<meta name="description" content="Make several displays follow one host with optional offsets.">
+<link rel="canonical" href="https://displaycontrol.example/docs/sync.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sync | DisplayControl docs">
+<meta property="og:description" content="Make several displays follow one host with optional offsets.">
+<meta property="og:url" content="https://displaycontrol.example/docs/sync.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sync | DisplayControl docs">
+<meta name="twitter:description" content="Make several displays follow one host with optional offsets.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html" aria-current="page">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Sync</p><h1>Sync</h1>
+<h2>How it works</h2>
+<p>Turn sync on from the header of the window. The first external display becomes the <strong>host</strong> (or the built-in display if there is none). To use a different host, run <code>displaycontrol sync enable "Name"</code>, or press the toggle-sync shortcut while the pointer is on that display. Changes to the host's brightness, contrast or volume are copied to every <strong>follower</strong>.</p>
+<ul><li>Sync follows only controls the follower supports. A built-in screen has no volume, so it ignores volume changes.</li>
+<li>Sync goes one way, host to followers. Moving a follower on its own does not change the host.</li>
+<li>Followers are updated at the same time, each through its own queue, so three displays take about as long as one.</li></ul>
+
+<h2>Offsets</h2>
+<p>100 percent on one display rarely looks like 100 percent on another. Open a follower's expanded card and set <em>When host is 100%</em>, for example 70. Other values scale in proportion: host 50 becomes follower 35.</p>
+
+<h2>In presets</h2>
+<p>A preset can include the sync state. When it turns sync on, that happens after the values are applied; when it turns sync off, before.</p>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,6 @@
+#compdef displaycontrol
+_arguments '1:command:(status list get set preset schedule sync reset-gamma selftest mcp version)' \
+  '--json[JSON output]' '--human[human output]' '--all[apply to all displays]' '--launch[start the app first]' \
+  '--brightness[percent]:value' '--contrast[percent]:value' '--volume[percent]:value' '--input[input source]:source' \
+  '--rotation[degrees]:value:(0 90 180 270)' '--power[power]:state:(on off)' '--mute[mute]:state:(on off)' \
+  '--index[display index]:n' '--uuid[display key]:key' '--delay[seconds]:n' '--mock[simulated monitor]'

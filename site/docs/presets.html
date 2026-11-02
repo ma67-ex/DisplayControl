@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presets | DisplayControl docs</title>
+<meta name="description" content="Save and restore a whole display setup in one click.">
+<link rel="canonical" href="https://displaycontrol.example/docs/presets.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Presets | DisplayControl docs">
+<meta property="og:description" content="Save and restore a whole display setup in one click.">
+<meta property="og:url" content="https://displaycontrol.example/docs/presets.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Presets | DisplayControl docs">
+<meta name="twitter:description" content="Save and restore a whole display setup in one click.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html" aria-current="page">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Presets</p><h1>Presets</h1>
+<h2>Creating a preset</h2>
+<p>Set your displays up the way you like, open Settings, Presets, and choose <strong>Save current setup</strong>. Then <strong>Edit</strong> it and keep only what you want it to change. Nothing is included unless it is ticked.</p>
+<table><tr><th>Can store</th><th>Notes</th></tr>
+<tr><td>Brightness, contrast, volume, mute</td><td>Percentages.</td></tr>
+<tr><td>Input source</td><td>Switch a monitor between computers.</td></tr>
+<tr><td>Power, rotation</td><td>Where the monitor supports them.</td></tr>
+<tr><td>Resolution and refresh rate</td><td>Through macOS display modes.</td></tr>
+<tr><td>Position</td><td>The arrangement of displays.</td></tr>
+<tr><td>Sync</td><td>On or off, and the host.</td></tr></table>
+
+<h2>Applying</h2>
+<p>Choose a preset in the window, press its shortcut, run it from a schedule or use the command line or URL scheme. Items apply in a fixed order: position, control mode, resolution, rotation, power, input, then mute, brightness, contrast and volume. A display that is not connected is skipped and reported, and the rest still applies.</p>
+<p>A <strong>delay</strong> can wait a few seconds first, which helps monitors that need time to wake.</p>
+<pre><code>displaycontrol preset activate "Evening" --delay 5
+open "displaycontrol://preset/Evening"</code></pre>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyboard | DisplayControl docs</title>
+<meta name="description" content="Use brightness and volume keys and custom shortcuts with external displays.">
+<link rel="canonical" href="https://displaycontrol.example/docs/keyboard.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Keyboard | DisplayControl docs">
+<meta property="og:description" content="Use brightness and volume keys and custom shortcuts with external displays.">
+<meta property="og:url" content="https://displaycontrol.example/docs/keyboard.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Keyboard | DisplayControl docs">
+<meta name="twitter:description" content="Use brightness and volume keys and custom shortcuts with external displays.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html" aria-current="page">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Keyboard</p><h1>Keyboard</h1>
+<h2>Brightness and volume keys</h2>
+<p>Settings, Keyboard, then turn on the brightness and volume keys. macOS asks for Accessibility permission because that is the only way to read those keys.</p>
+<ul><li>The keys control the display under the mouse pointer. A setting makes them control every display instead.</li>
+<li>If the pointer is on the built-in screen, or on a display DisplayControl cannot control, macOS handles the key as usual.</li>
+<li>Each press changes the value by the display's step size (1, 2, 5 or 10, in Settings, General).</li></ul>
+<div class="callout warn">If you rebuild the app, macOS may forget the permission because the code signature changed. Remove DisplayControl from the Accessibility list and add it again.</div>
+
+<h2>Custom shortcuts</h2>
+<p>In Settings, Keyboard, click a row, then press the keys. A shortcut needs at least one modifier (<kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>⌘</kbd>) so it can never block normal typing. Escape cancels and Delete clears.</p>
+<p>Available actions: brightness up and down, contrast up and down, volume up and down, mute, cycle input and toggle sync. Each preset also has its own shortcut in its editor. Custom shortcuts do not need Accessibility permission.</p>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DisplayControl: brightness keys for every monitor on your Mac</title>
+<meta name="description" content="Free, open source menu bar app to control external monitor brightness, contrast, volume and input from your Mac. No account, no network access.">
+<link rel="canonical" href="https://displaycontrol.example/index.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="DisplayControl: brightness keys for every monitor on your Mac">
+<meta property="og:description" content="Free, open source menu bar app to control external monitor brightness, contrast, volume and input from your Mac. No account, no network access.">
+<meta property="og:url" content="https://displaycontrol.example/index.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="DisplayControl: brightness keys for every monitor on your Mac">
+<meta name="twitter:description" content="Free, open source menu bar app to control external monitor brightness, contrast, volume and input from your Mac. No account, no network access.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DisplayControl","operatingSystem":"macOS 13 or later","applicationCategory":"UtilitiesApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT"}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="features.html">Features</a><a href="docs/index.html">Docs</a><a href="faq.html">FAQ</a><a href="compatibility.html">Compatibility</a><a href="download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><main id="main">
+<section class="hero">
+  <div>
+    <h1>Your Mac's brightness keys, for every monitor.</h1>
+    <p class="lede">DisplayControl talks to external monitors the same way their own buttons do. Change real brightness, contrast, volume and input from the menu bar, the keyboard, a script or an AI assistant.</p>
+    <div class="btns">
+      <a class="btn primary" href="download.html">Download for Mac</a>
+      <a class="btn" href="docs/getting-started.html">Read the docs</a>
+    </div>
+    <p class="note">Free, open source, no account, no network access. Needs macOS 13 or later. Hardware control over DDC needs an Apple Silicon Mac; see <a href="compatibility.html">compatibility</a>.</p>
+  </div>
+  
+<div class="mock" role="img" aria-label="Illustration of the DisplayControl menu bar window with two displays and three presets">
+  <div class="top"><span>DisplayControl</span><span style="color:var(--ink-2)">Sync on</span></div>
+  <div class="card"><div class="name"><span>Built-in display</span><span class="pill">Apple</span></div>
+    <div class="row"><span>Brightness</span><div class="track"><i style="width:56%"></i><b style="left:56%"></b></div><span>56</span></div></div>
+  <div class="card"><div class="name"><span>External monitor</span><span class="pill">DDC</span></div>
+    <div class="row"><span>Brightness</span><div class="track"><i style="width:72%"></i><b style="left:72%"></b></div><span>72</span></div>
+    <div class="row"><span>Contrast</span><div class="track"><i style="width:50%"></i><b style="left:50%"></b></div><span>50</span></div>
+    <div class="row"><span>Volume</span><div class="track"><i style="width:30%"></i><b style="left:30%"></b></div><span>30</span></div></div>
+  <div class="chips"><span class="chip">Work</span><span class="chip">Evening</span><span class="chip">Movie</span></div>
+</div>
+</section>
+
+<section>
+  <h2>The problem it fixes</h2>
+  <div class="grid">
+    <div class="tile"><h3>Buttons you cannot reach</h3><p>Monitor menus live behind the bezel, one tiny button at a time. Changing brightness at night should not need a manual.</p></div>
+    <div class="tile"><h3>Screens that do not match</h3><p>Your laptop panel and your monitor are rarely the same brightness. You end up matching them by eye, again and again.</p></div>
+    <div class="tile"><h3>Settings that reset</h3><p>Some monitors forget their settings when they reconnect. A schedule can put them back the moment they appear.</p></div>
+  </div>
+</section>
+
+<section class="alt">
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><strong>Detects each display.</strong> It reads the monitor's own capability list over DDC/CI, the standard that monitor buttons use, and shows only the controls the monitor really has.</li>
+    <li><strong>Falls back when it must.</strong> If a monitor does not answer, DisplayControl can dim it with software gamma instead, and tells you which mode each display is in.</li>
+    <li><strong>Checks its own work.</strong> After a change it reads the value back. If the monitor ignores a setting, you see a hint instead of a silent failure.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>What you get</h2>
+  <div class="grid">
+    <div class="tile"><h3>Real hardware control</h3><p>Brightness, contrast, volume, mute, input source, power and rotation, where the monitor supports them.</p></div>
+    <div class="tile"><h3>Sync</h3><p>Move one slider and the other displays follow, with an offset so a bright laptop and a dim monitor can still match.</p></div>
+    <div class="tile"><h3>Presets</h3><p>Save a whole desk setup, including inputs, resolution and arrangement, and apply it in one click.</p></div>
+    <div class="tile"><h3>Schedules</h3><p>Run a preset at a time, at sunrise or sunset, on wake, on unlock, when you plug in, or when a monitor connects.</p></div>
+    <div class="tile"><h3>Keyboard</h3><p>Use the brightness and volume keys on the display under your pointer, or record your own shortcuts.</p></div>
+    <div class="tile"><h3>Scriptable</h3><p>A command line tool, a <code>displaycontrol://</code> URL scheme and an MCP server for AI assistants.</p></div>
+  </div>
+  <p style="margin-top:20px"><a href="features.html">See every feature</a></p>
+</section>
+
+<section class="alt">
+  <h2>Light on your Mac</h2>
+  <p>Event driven, with no polling. On the test Mac it sat at 0.0% CPU with the window closed, with a 24 MB memory footprint. It has no network code, no analytics and no account. <a href="privacy.html">Read the privacy page</a>.</p>
+</section>
+</main></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="license.html">MIT License</a>).</span>
+<a href="privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation and CLI | DisplayControl docs</title>
+<meta name="description" content="Control displays from scripts, URLs and AI assistants.">
+<link rel="canonical" href="https://displaycontrol.example/docs/automation-cli.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Automation and CLI | DisplayControl docs">
+<meta property="og:description" content="Control displays from scripts, URLs and AI assistants.">
+<meta property="og:url" content="https://displaycontrol.example/docs/automation-cli.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Automation and CLI | DisplayControl docs">
+<meta name="twitter:description" content="Control displays from scripts, URLs and AI assistants.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html" aria-current="page">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Automation and CLI</p><h1>Automation and CLI</h1>
+<h2>Command line</h2>
+<p>Install it from Settings, Command Line, or run the command shown there. DisplayControl must be running. Add <code>--launch</code> to start it if it is not.</p>
+<pre><code>displaycontrol status
+displaycontrol list
+displaycontrol get "Acer" --brightness
+displaycontrol set "Acer" --brightness 70 --contrast 50
+displaycontrol set --all --brightness 40
+displaycontrol set "Acer" --input hdmi2
+displaycontrol preset list
+displaycontrol preset activate "Evening" --delay 5
+displaycontrol schedule list
+displaycontrol sync enable "Acer"
+displaycontrol mode "Acer" software
+displaycontrol selftest "Acer"
+displaycontrol probe
+displaycontrol reset-gamma</code></pre>
+<p>Pick a display by name (partial is fine), <code>--index N</code> or <code>--uuid KEY</code>. Output is readable in a terminal and JSON when piped; force either with <code>--human</code> or <code>--json</code>.</p>
+<table><tr><th>Exit code</th><th>Meaning</th></tr>
+<tr><td>0</td><td>Success</td></tr><tr><td>1</td><td>Bad usage</td></tr><tr><td>2</td><td>DisplayControl is not running</td></tr>
+<tr><td>3</td><td>Display or preset not found</td></tr><tr><td>4</td><td>The display refused, or a self-test failed</td></tr><tr><td>5</td><td>Partial success (some preset items skipped)</td></tr></table>
+<p><code>probe</code> works without the app. <code>selftest --mock</code> runs the whole pipeline against a simulated monitor.</p>
+
+<h2>URL scheme</h2>
+<pre><code>open "displaycontrol://preset/Movie%20Night"
+open "displaycontrol://set?display=Acer&amp;brightness=60"</code></pre>
+<p>From Shortcuts, use a <em>Run Shell Script</em> or <em>Open URLs</em> action. From AppleScript: <code>do shell script "open 'displaycontrol://preset/Evening'"</code>.</p>
+
+<h2>AI assistants (MCP)</h2>
+<p>DisplayControl includes a Model Context Protocol server over stdio. Add it to your assistant's configuration:</p>
+<pre><code>{ "mcpServers": { "displaycontrol": { "command": "/usr/local/bin/displaycontrol", "args": ["mcp"] } } }</code></pre>
+<p>Tools: list and get displays, set displays, list and activate presets, set sync, list schedules and enable or disable one. Values are limited to 0 to 100, and turning a display off needs <code>confirm: true</code>.</p>
+<p>The control channel is a Unix socket in your Application Support folder, readable only by you. There is no network listener.</p>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

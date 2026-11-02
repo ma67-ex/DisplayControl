@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features | DisplayControl</title>
+<meta name="description" content="Everything DisplayControl can do today, and what it does not do yet.">
+<link rel="canonical" href="https://displaycontrol.example/features.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Features | DisplayControl">
+<meta property="og:description" content="Everything DisplayControl can do today, and what it does not do yet.">
+<meta property="og:url" content="https://displaycontrol.example/features.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Features | DisplayControl">
+<meta name="twitter:description" content="Everything DisplayControl can do today, and what it does not do yet.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="features.html" aria-current="page">Features</a><a href="docs/index.html">Docs</a><a href="faq.html">FAQ</a><a href="compatibility.html">Compatibility</a><a href="download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><main id="main">
+<div class="prose" style="max-width:none">
+<h1>Features</h1>
+<p class="lede">Each item below exists in the code today. Where something is partial, it says so.</p>
+
+<h2>Controls</h2>
+<table><tr><th>Control</th><th>How</th><th>Notes</th></tr>
+<tr><td>Brightness, contrast, volume</td><td>DDC/CI, 0 to 100</td><td>Only the controls the monitor reports are shown. Values scale to the monitor's own range (100, 255 and so on).</td></tr>
+<tr><td>Mute</td><td>DDC/CI</td><td>If the monitor supports it.</td></tr>
+<tr><td>Input source</td><td>DDC/CI</td><td>DisplayPort, HDMI and USB-C names, or a raw code.</td></tr>
+<tr><td>Power</td><td>DDC/CI</td><td>Some monitors cannot be woken over DDC once off. Turning off needs a confirmation in the AI interface.</td></tr>
+<tr><td>Rotation</td><td>DDC/CI orientation code</td><td>Hidden when the monitor does not report it.</td></tr>
+<tr><td>Resolution and refresh rate</td><td>macOS display modes</td><td>Includes HiDPI modes.</td></tr>
+<tr><td>Built-in and Apple displays</td><td>macOS DisplayServices</td><td>Brightness. Loaded at runtime, so the app still works if macOS changes it.</td></tr>
+<tr><td>Software dimming</td><td>Gamma tables</td><td>For monitors that refuse DDC, and for virtual displays. Never goes fully black, and is restored on every exit path.</td></tr></table>
+
+<h2>Several displays</h2>
+<p><strong>Sync</strong> makes one display the host and the rest follow, for brightness, contrast and volume. Each follower has an offset: "when the host is at 100 percent, this display is at 70". Followers only change for controls they support.</p>
+<p><strong>Presets</strong> store exactly what you tick: brightness, contrast, volume, mute, input, power, rotation, resolution, position and sync. They apply in a fixed order so values land on an awake display on the right input. A display that is not connected is skipped, not treated as an error.</p>
+<p><strong>Schedules</strong> connect triggers to presets. See the <a href="docs/schedules.html">schedules guide</a> for the full list.</p>
+
+<h2>Keyboard</h2>
+<p>Optional brightness and volume keys for external displays (needs Accessibility permission), plus custom shortcuts for brightness, contrast, volume, mute, cycling inputs, toggling sync and applying presets.</p>
+
+<h2>Automation</h2>
+<ul>
+<li><strong>Command line:</strong> <code>displaycontrol status</code>, <code>set</code>, <code>get</code>, <code>preset</code>, <code>schedule</code>, <code>sync</code>, <code>selftest</code>, <code>probe</code>. JSON when piped.</li>
+<li><strong>URL scheme:</strong> <code>displaycontrol://preset/Evening</code> works from Terminal, scripts and any app that opens URLs.</li>
+<li><strong>MCP server:</strong> <code>displaycontrol mcp</code> lets an AI assistant list and change displays and apply presets.</li>
+<li><strong>Not implemented:</strong> native Siri, Spotlight and Shortcuts actions. They would need a full Xcode build. Until then, use the URL scheme or the command line from a Shortcuts "Run Shell Script" action.</li></ul>
+
+<h2>Built to be trusted</h2>
+<ul>
+<li>Reads values back after a write and warns when a monitor ignores them.</li>
+<li>Per-display command queue: a slider drag becomes a few writes, always ending on the final value, spaced to protect monitors.</li>
+<li><code>selftest</code> checks a monitor end to end and puts every value back.</li>
+<li>No network access, no analytics, no account. Open source under the MIT License.</li></ul>
+
+<h2>Not included</h2>
+<ul><li>Samsung and LG smart monitor control over Wi-Fi.</li>
+<li>HDR, True Tone and Night Shift toggles.</li>
+<li>Brightness beyond a display's normal maximum.</li>
+<li>DDC on Intel Macs. They get Apple-display control and software dimming.</li>
+<li>Windows.</li></ul>
+</div>
+</main></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="license.html">MIT License</a>).</span>
+<a href="privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

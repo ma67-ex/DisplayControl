@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting | DisplayControl docs</title>
+<meta name="description" content="Fix monitors that do not respond, keys that stop working and dimmed screens.">
+<link rel="canonical" href="https://displaycontrol.example/docs/troubleshooting.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Troubleshooting | DisplayControl docs">
+<meta property="og:description" content="Fix monitors that do not respond, keys that stop working and dimmed screens.">
+<meta property="og:url" content="https://displaycontrol.example/docs/troubleshooting.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Troubleshooting | DisplayControl docs">
+<meta name="twitter:description" content="Fix monitors that do not respond, keys that stop working and dimmed screens.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html" aria-current="page">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Troubleshooting</p><h1>Troubleshooting</h1>
+<h2>A monitor does not respond</h2>
+<ol>
+<li>Switch the monitor's picture mode to <strong>Custom</strong>. Game, Movie and Reader modes often lock brightness and contrast.</li>
+<li>Look for a <strong>DDC/CI</strong> option in the monitor's menu and turn it on.</li>
+<li>Connect the monitor directly, without a hub, dock, KVM or adapter, to see whether that was the problem.</li>
+<li>Try another port. If HDMI fails on your Apple Silicon Mac, use USB-C or DisplayPort.</li>
+<li>In the display's expanded card, press <strong>Re-detect</strong>, or choose a control mode by hand.</li>
+<li>Run <code>displaycontrol probe</code> and <code>displaycontrol selftest "name"</code>.</li></ol>
+<p>Reading <code>probe</code>: <em>External candidates: 0</em> means macOS exposes no DDC service for that monitor. <em>read failed</em> after a successful pairing means the monitor did not give a valid answer.</p>
+
+<h2>A screen stays dim</h2>
+<p>Run <code>displaycontrol reset-gamma</code>, or choose <em>Reset dimming</em> in the window. If the app is not running, relaunch it first, or log out and in.</p>
+
+<h2>The keyboard keys do nothing</h2>
+<ul><li>Is the setting on, and is DisplayControl ticked in System Settings, Privacy and Security, Accessibility?</li>
+<li>Rebuilt the app? Remove it from the list and add it again.</li>
+<li>The keys only apply to the display under the pointer. Move the pointer onto the monitor.</li></ul>
+
+<h2>The icon is missing from the menu bar</h2>
+<p>Too many menu bar items can hide it. Quit a few, or use a menu bar manager and make sure DisplayControl is shown.</p>
+
+<h2>Sunrise schedules do nothing</h2>
+<p>They need a location. Add one in Settings, Schedules.</p>
+
+<h2>Report a problem</h2>
+<p>Open About, choose <strong>Copy diagnostics</strong>, and paste the result into an issue with your monitor and Mac models. The diagnostics contain no personal data: macOS version, chip, display vendor and product IDs, control modes and recent DDC log lines.</p>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

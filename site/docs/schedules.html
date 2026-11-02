@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schedules | DisplayControl docs</title>
+<meta name="description" content="Run presets automatically by time, sun position or system events.">
+<link rel="canonical" href="https://displaycontrol.example/docs/schedules.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Schedules | DisplayControl docs">
+<meta property="og:description" content="Run presets automatically by time, sun position or system events.">
+<meta property="og:url" content="https://displaycontrol.example/docs/schedules.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Schedules | DisplayControl docs">
+<meta name="twitter:description" content="Run presets automatically by time, sun position or system events.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html" aria-current="page">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Schedules</p><h1>Schedules</h1>
+<h2>Triggers</h2>
+<table><tr><th>Group</th><th>Triggers</th></tr>
+<tr><td>Time</td><td>A time of day on chosen weekdays (none chosen means every day).</td></tr>
+<tr><td>Sun</td><td>Sunrise or sunset, with an offset of up to four hours before or after.</td></tr>
+<tr><td>System</td><td>Mac wakes, screen locks, screen unlocks, DisplayControl starts, Dark or Light Mode turns on.</td></tr>
+<tr><td>Power</td><td>Plugged in, or on battery.</td></tr>
+<tr><td>Monitors</td><td>Any or a specific monitor connects or disconnects.</td></tr></table>
+<p>Create a preset first, then add a schedule in Settings, Schedules. Each can be switched on and off without deleting it.</p>
+
+<h2>When the condition ends</h2>
+<p>For paired triggers (plugged in and on battery, Dark and Light Mode, lock and unlock, monitor connects and disconnects) you can pick a second preset to apply when the condition ends.</p>
+
+<h2>Sunrise and sunset</h2>
+<p>Allow your location once, or type latitude and longitude. The times are calculated on your Mac with the NOAA solar equations, accurate to about a minute or two. In polar day and polar night there is no sunrise or sunset, and those schedules skip until there is.</p>
+
+<h2>Sleep, clock and daylight saving</h2>
+<ul><li>Timers are one-shot and computed for the next fire time, so nothing wakes the Mac while idle.</li>
+<li>If the Mac slept through a time-based schedule, the most recent missed one runs once when it wakes, if it was within two hours.</li>
+<li>Timers are recomputed after wake and when the clock or time zone changes. Wall-clock times survive daylight saving changes.</li>
+<li>Starting the app is not treated as a monitor connecting, so a "monitor connects" schedule does not fire at launch.</li></ul>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

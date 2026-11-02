@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started | DisplayControl docs</title>
+<meta name="description" content="Install DisplayControl, find it in the menu bar and understand control modes.">
+<link rel="canonical" href="https://displaycontrol.example/docs/getting-started.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Getting started | DisplayControl docs">
+<meta property="og:description" content="Install DisplayControl, find it in the menu bar and understand control modes.">
+<meta property="og:url" content="https://displaycontrol.example/docs/getting-started.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Getting started | DisplayControl docs">
+<meta name="twitter:description" content="Install DisplayControl, find it in the menu bar and understand control modes.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="../index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="../features.html">Features</a><a href="../docs/index.html">Docs</a><a href="../faq.html">FAQ</a><a href="../compatibility.html">Compatibility</a><a href="../download.html">Download</a></nav>
+</div></header>
+<div class="wrap"><div class="docs"><aside class="side" aria-label="Documentation"><a href="../docs/index.html">All docs</a><a href="../docs/getting-started.html" aria-current="page">Getting started</a><a href="../docs/keyboard.html">Keyboard</a><a href="../docs/sync.html">Sync</a><a href="../docs/presets.html">Presets</a><a href="../docs/schedules.html">Schedules</a><a href="../docs/automation-cli.html">Automation and CLI</a><a href="../docs/troubleshooting.html">Troubleshooting</a></aside><main id="main" class="prose"><p class="crumbs"><a href="index.html">Docs</a> / Getting started</p><h1>Getting started</h1>
+<h2>Install</h2>
+<p>Drag <strong>DisplayControl</strong> to Applications and open it. If macOS warns that the app is from an unidentified developer, right-click it, choose <strong>Open</strong> and confirm once. It has no Dock icon: look for the display symbol in the menu bar.</p>
+<p>If you cannot see it, your menu bar may be full. Close a few menu bar items, or check your menu bar manager.</p>
+
+<h2>First run</h2>
+<p>A short welcome shows each display, the way DisplayControl chose to control it, and a <strong>Test</strong> button. A test changes brightness by a few points, reads it back and restores it.</p>
+
+<h2>The window</h2>
+<p>Click the menu bar icon. Each display has a card with brightness, contrast and volume sliders for the controls it really has. The chevron opens more: input, power, mute, rotation, resolution, control mode, the sync offset and a self-test.</p>
+
+<h2>Control modes</h2>
+<table><tr><th>Mode</th><th>What it does</th></tr>
+<tr><td><strong>DDC</strong></td><td>Talks to the monitor over its cable using DDC/CI. Changes the real backlight and the other hardware controls.</td></tr>
+<tr><td><strong>Apple</strong></td><td>Built-in screens and Apple displays, through macOS.</td></tr>
+<tr><td><strong>Software</strong></td><td>Darkens the picture with gamma. Works on almost anything, including virtual and Sidecar displays, but is not real brightness.</td></tr></table>
+<p>The default is automatic: DDC if the monitor answers, otherwise Apple, otherwise software. You can force a mode per display. A monitor that has just been plugged in is retried after 2, 4 and 8 seconds, because monitors often ignore DDC while the link comes up.</p>
+
+<h2>Where things are saved</h2>
+<p>Settings, presets and schedules are JSON files in <code>~/Library/Application Support/DisplayControl/</code>. A backup copy is kept, and a damaged file falls back to it.</p>
+<p>Next: <a href="keyboard.html">keyboard</a>, <a href="sync.html">sync</a>, <a href="presets.html">presets</a>.</p>
+</main></div></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="../license.html">MIT License</a>).</span>
+<a href="../privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="../docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>

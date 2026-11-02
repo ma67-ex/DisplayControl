@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download | DisplayControl</title>
+<meta name="description" content="Download DisplayControl for macOS or build it from source.">
+<link rel="canonical" href="https://displaycontrol.example/download.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Download | DisplayControl">
+<meta property="og:description" content="Download DisplayControl for macOS or build it from source.">
+<meta property="og:url" content="https://displaycontrol.example/download.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Download | DisplayControl">
+<meta name="twitter:description" content="Download DisplayControl for macOS or build it from source.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html"><svg viewBox="0 0 32 32" role="img" aria-label="DisplayControl logo"><rect width="32" height="32" rx="8" fill="#e8590c"/><circle cx="21" cy="12" r="5" fill="#fff"/><rect x="6" y="21" width="20" height="3.2" rx="1.6" fill="#fff" opacity=".55"/><rect x="6" y="21" width="12" height="3.2" rx="1.6" fill="#fff"/></svg><span>DisplayControl</span></a>
+<nav class="main" aria-label="Main"><a href="features.html">Features</a><a href="docs/index.html">Docs</a><a href="faq.html">FAQ</a><a href="compatibility.html">Compatibility</a><a href="download.html" aria-current="page">Download</a></nav>
+</div></header>
+<div class="wrap"><main id="main">
+<div class="prose" style="max-width:none">
+<h1>Download</h1>
+<p class="lede">DisplayControl is free. Build it yourself, or download a release from the project page.</p>
+<div class="btns"><a class="btn primary" href="https://github.com/OWNER/DisplayControl/releases">Releases on GitHub</a><a class="btn" href="https://github.com/OWNER/DisplayControl">Source code</a></div>
+<p class="note">Each release lists a SHA-256 checksum. Compare it with <code>shasum -a 256 DisplayControl.zip</code> before opening the app.</p>
+
+<h2>Install</h2>
+<ol class="steps">
+<li>Unzip <code>DisplayControl.zip</code> and drag <strong>DisplayControl</strong> to your Applications folder.</li>
+<li>Open it. Builds that are not notarized by Apple show a warning the first time: right-click the app, choose <strong>Open</strong>, then confirm.</li>
+<li>Look for the display icon in the menu bar. There is no Dock icon.</li>
+<li>Optional: in Settings, turn on the keyboard keys and install the <code>displaycontrol</code> command.</li></ol>
+
+<h2>Build from source</h2>
+<pre><code>git clone https://github.com/OWNER/DisplayControl.git
+cd DisplayControl
+./Packaging/build-app.sh
+open dist/DisplayControl.app</code></pre>
+<p>Needs the Swift toolchain (Command Line Tools are enough). The script tries the newest macOS SDK first and falls back to older ones if the SwiftUI macro plugin is missing.</p>
+
+<h2>Requirements</h2>
+<ul><li>macOS 13 or later.</li><li>Apple Silicon for hardware (DDC) control of third-party monitors. Intel Macs can use Apple-display control and software dimming.</li></ul>
+
+<div class="callout warn"><strong>After rebuilding the app yourself:</strong> macOS ties the Accessibility permission to the app's code signature, and ad-hoc signing changes it on every build. If the keyboard keys stop working, remove DisplayControl from the Accessibility list and add it again.</div>
+</div>
+</main></div>
+<footer class="site"><div class="wrap">
+<div class="cols">
+<span>DisplayControl is free and open source (<a href="license.html">MIT License</a>).</span>
+<a href="privacy.html">Privacy</a>
+<a href="https://github.com/OWNER/DisplayControl">Source code</a>
+<a href="docs/troubleshooting.html">Troubleshooting</a>
+</div>
+<p>It does not connect to the internet. Not affiliated with any monitor maker or any other display utility.</p>
+</div></footer>
+</body>
+</html>
