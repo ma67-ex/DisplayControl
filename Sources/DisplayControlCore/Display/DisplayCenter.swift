@@ -16,6 +16,14 @@ public struct DisplaySnapshot: Codable, Equatable, Sendable {
     public var isSyncFollower: Bool
     public var ddcUnreliable: Bool
     public var capabilitiesModel: String?
+
+    public init(key: String, id: UInt32, index: Int, name: String, isBuiltIn: Bool, mode: ControlMode, supported: [DisplayProperty],
+                values: [String: Int], settings: DisplaySettings, isSyncHost: Bool, isSyncFollower: Bool, ddcUnreliable: Bool,
+                capabilitiesModel: String?) {
+        self.key = key; self.id = id; self.index = index; self.name = name; self.isBuiltIn = isBuiltIn; self.mode = mode
+        self.supported = supported; self.values = values; self.settings = settings; self.isSyncHost = isSyncHost
+        self.isSyncFollower = isSyncFollower; self.ddcUnreliable = ddcUnreliable; self.capabilitiesModel = capabilitiesModel
+    }
 }
 
 public enum CenterError: Error, CustomStringConvertible, Equatable {

@@ -18,6 +18,7 @@ struct MenuView: View {
         VStack(spacing: 10) {
             ForEach(model.displays, id: \.key) { d in DisplayCard(model: model, display: d) }
         }
+        .frame(width: 316)                       // the window is 344 wide with 14 of padding each side; nothing may exceed it
         .padding(.vertical, 4)
         .background(GeometryReader { Color.clear.preference(key: ContentHeightKey.self, value: $0.size.height) })
     }
@@ -241,7 +242,9 @@ struct Banner: View {
 struct DisplayCard: View {
     @ObservedObject var model: AppModel
     let display: DisplaySnapshot
-    @State private var expanded = false
+    /// Development aid for the screenshot tool: start every card open so tall layouts can be checked.
+    nonisolated(unsafe) static var startExpanded = false
+    @State private var expanded = DisplayCard.startExpanded
 
     private func has(_ p: DisplayProperty) -> Bool { display.supported.contains(p) }
 
@@ -327,17 +330,28 @@ struct SliderRow: View {
 struct ExpandedControls: View {
     @ObservedObject var model: AppModel
     let display: DisplaySnapshot
-    @State private var resolutions: [ResolutionSpec] = []
-    @State private var currentResolution: ResolutionSpec?
-    @State private var profiles = ColorProfileState()
+    /// Development aid for the screenshot tool: pretend these loaded, so long names can be checked.
+    nonisolated(unsafe) static var devProfiles: ColorProfileState?
+    nonisolated(unsafe) static var devResolutions: [ResolutionSpec]?
+    @State private var resolutions: [ResolutionSpec] = ExpandedControls.devResolutions ?? []
+    @State private var currentResolution: ResolutionSpec? = ExpandedControls.devResolutions?.first
+    @State private var profiles = ExpandedControls.devProfiles ?? ColorProfileState()
     @Environment(\.colorScheme) private var scheme
 
+    /// A label on the left and a control on the right. The control may never be wider than a share of the row:
+    /// a long profile or mode name is shortened with an ellipsis instead of widening the whole window.
     private func row<Trailing: View>(_ title: String, _ symbol: String, @ViewBuilder trailing: () -> Trailing) -> some View {
-        HStack {
-            Label(title, systemImage: symbol).font(.system(size: 12)).foregroundStyle(.secondary)
-            Spacer()
-            trailing()
+        HStack(spacing: 8) {
+            Label(title, systemImage: symbol).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).fixedSize()
+            Spacer(minLength: 4)
+            trailing().frame(maxWidth: 170, alignment: .trailing)
         }
+    }
+
+    /// A menu whose title is one short line, however long the chosen name is.
+    private func shortMenu<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        Menu(content: content) { Text(title).lineLimit(1).truncationMode(.middle) }
+            .menuStyle(.borderlessButton)
     }
 
     var body: some View {
@@ -350,10 +364,9 @@ struct ExpandedControls: View {
             }
             if display.supported.contains(.input) {
                 row("Input", "cable.connector") {
-                    Menu("Switch") {
+                    shortMenu("Switch") {
                         ForEach(InputSource.common, id: \.code) { src in Button(src.name) { send(.input, src.code) } }
                     }
-                    .menuStyle(.borderlessButton).fixedSize()
                 }
             }
             if display.supported.contains(.power) {
@@ -378,30 +391,27 @@ struct ExpandedControls: View {
             }
             if !resolutions.isEmpty {
                 row("Resolution", "rectangle.expand.vertical") {
-                    Menu(currentResolution.map(format) ?? "Choose") {
+                    shortMenu(currentResolution.map(format) ?? "Choose") {
                         ForEach(resolutions.prefix(24), id: \.self) { r in Button(format(r)) { choose(r) } }
                     }
-                    .menuStyle(.borderlessButton).fixedSize()
                 }
             }
             if profiles.available.count > 1 {
                 row("Color profile", "paintpalette") {
-                    Menu(profiles.current?.name ?? "Choose") {
+                    shortMenu(profiles.current?.name ?? "Choose") {
                         ForEach(profiles.available, id: \.path) { p in
                             Button { chooseProfile(p) } label: {
                                 Label(p.isFactory ? "\(p.name) (own)" : p.name, systemImage: p.path == profiles.current?.path ? "checkmark" : "circle.dotted")
                             }
                         }
                     }
-                    .menuStyle(.borderlessButton).fixedSize()
                 }
             }
             row("Control", "slider.horizontal.3") {
-                Menu(display.settings.preferredMode?.title ?? "Automatic") {
+                shortMenu(display.settings.preferredMode?.title ?? "Automatic") {
                     Button("Automatic") { model.setMode(display.key, nil) }
                     ForEach(ControlMode.allCases, id: \.self) { m in Button(m.title) { model.setMode(display.key, m) } }
                 }
-                .menuStyle(.borderlessButton).fixedSize()
             }
             if display.isSyncFollower {
                 HStack(spacing: 8) {

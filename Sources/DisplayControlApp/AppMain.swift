@@ -350,6 +350,27 @@ final class AppEnvironment {
                 try? png.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
             }
         }
+        // A busy desk with every card open: three displays, every control, a long color profile name.
+        func snap(_ i: Int, _ name: String, _ builtIn: Bool, _ mode: ControlMode, _ props: [DisplayProperty]) -> DisplaySnapshot {
+            DisplaySnapshot(key: "k\(i)", id: UInt32(100 + i), index: i, name: name, isBuiltIn: builtIn, mode: mode, supported: props,
+                            values: ["brightness": 62, "contrast": 48, "volume": 25, "boost": 100], settings: DisplaySettings(),
+                            isSyncHost: false, isSyncFollower: i == 1, ddcUnreliable: false, capabilitiesModel: nil)
+        }
+        let saved = (model.displays, model.extras)
+        model.displays = [snap(0, "Built-in Retina Display", true, .apple, [.brightness]),
+                          snap(1, "DELL S2440L", false, .software, [.brightness]),
+                          snap(2, "ED270R S3", false, .ddc, [.brightness, .contrast, .volume, .input, .power, .mute, .rotation, .boost])]
+        model.extras.hdr["102"] = false
+        DisplayCard.startExpanded = true
+        ExpandedControls.devProfiles = ColorProfileState(current: ColorProfileInfo(name: "ACES CG Linear (Academy Color Encoding System AP1)", path: "/x"), available: [ColorProfileInfo(name: "ACES CG Linear (Academy Color Encoding System AP1)", path: "/x"), ColorProfileInfo(name: "sRGB", path: "/y")])
+        ExpandedControls.devResolutions = [ResolutionSpec(width: 3840, height: 2160, refreshRate: 59.94, hiDPI: true)]
+        render(MenuView(model: model) { _ in }, NSSize(width: 344, height: 900), "expanded-night", fitHeight: true, appearance: night)
+        render(MenuView(model: model) { _ in }, NSSize(width: 344, height: 900), "expanded-light", fitHeight: true, appearance: light)
+        model.displays = [model.displays[2]]
+        render(MenuView(model: model) { _ in }, NSSize(width: 344, height: 1100), "expanded-one-night", fitHeight: true, appearance: night)
+        DisplayCard.startExpanded = false
+        ExpandedControls.devProfiles = nil; ExpandedControls.devResolutions = nil
+        model.displays = saved.0; model.extras = saved.1
         let pop = MenuView(model: model) { _ in }
         render(pop, NSSize(width: 344, height: 560), "popover-night", fitHeight: true, appearance: night)
         render(pop, NSSize(width: 344, height: 560), "popover-light", fitHeight: true, appearance: light)
